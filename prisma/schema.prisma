@@ -1,0 +1,1714 @@
+// Prisma Schema for Rope Pro Academy LMS
+// Complete database schema with 30+ models
+// NOTE: Using String fields instead of enums for simplicity
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DATABASE_URL_UNPOOLED")
+}
+
+// ============================================
+// AUTHENTICATION & USER MODELS
+// ============================================
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  password      String
+  role          String    @default("STUDENT") // ADMIN, COACH, STUDENT
+  status        String    @default("PENDING") // ACTIVE, INACTIVE, PENDING
+  emailVerified DateTime?
+  lastLogin     DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // One-to-one relationships (user can be one of these)
+  student Student?
+  coach   Coach?
+  admin   Admin?
+
+  // Notifications
+  notifications Notification[]
+
+  // Audit logs
+  auditLogs AuditLog[]
+
+  // Finance Relations
+  processedPayments Payment[]         @relation("PaymentsProcessed")
+  feeStructures     FeeStructure[]
+  financialReports  FinancialReport[]
+
+  @@map("users")
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  @@unique([provider, providerAccountId])
+  @@map("accounts")
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  @@map("sessions")
+}
+
+model Otp {
+  id         String   @id @default(cuid())
+  identifier String
+  token      String // 6-digit code
+  type       String // "EMAIL_VERIFY", "PHONE_VERIFY", "PASSWORD_RESET"
+  expires    DateTime
+  createdAt  DateTime @default(now())
+
+  @@index([identifier])
+  @@map("otps")
+}
+
+// ============================================
+// PROFILE MODELS
+// ============================================
+
+model Student {
+  id        String @id @default(cuid())
+  studentId String @unique // RPA-2024-0001 format
+  userId    String @unique
+  user      User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Personal Info
+  fullName    String
+  dateOfBirth DateTime?
+  gender      String? // MALE, FEMALE, OTHER
+  photoUrl    String?
+
+  // Contact Info
+  phone    String?
+  whatsapp String?
+
+  // Parent/Guardian Info
+  parentName     String?
+  parentPhone    String?
+  parentEmail    String?
+  parentRelation String?
+
+  // Academic Info
+  schoolName String?
+  grade      String?
+
+  // Academy Assignment
+  academyId String?
+  academy   Academy? @relation(fields: [academyId], references: [id])
+  batchId   String?
+  batch     Batch?   @relation(fields: [batchId], references: [id])
+  coachId   String?
+  coach     Coach?   @relation(fields: [coachId], references: [id])
+
+  // Skill & Level
+  skillLevel String @default("BEGINNER") // BEGINNER, INTERMEDIATE, ADVANCED, COMPETITIVE
+
+  // Medical Info
+  bloodGroup        String?
+  medicalConditions String?
+  emergencyContact  String?
+  emergencyPhone    String?
+
+  // Achievement Tracking
+  totalMedals     Int @default(0)
+  guinnessRecords Int @default(0)
+  limcaRecords    Int @default(0)
+  nationalMedals  Int @default(0)
+  stateMedals     Int @default(0)
+  districtMedals  Int @default(0)
+
+  // Attendance Tracking (for coach quick view)
+  attendancePercentage  Float   @default(100)
+  consecutivePresent    Int     @default(0)
+  longestStreak         Int     @default(0)
+  lastAttendanceDate    DateTime?
+  lastAttendanceStatus  String? // PRESENT, ABSENT, LEAVE
+
+  // Timestamps
+  joiningDate DateTime @default(now())
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relations
+  attendances        Attendance[]
+  fees               Fee[]
+  eventRegistrations EventRegistration[]
+  achievements       Achievement[]
+  studentMaterials   StudentMaterial[]
+  leaves             Leave[]
+
+  // Finance Relations
+  payments              Payment[]
+  paymentReminders      PaymentReminder[]
+  lastPaymentDate       DateTime?
+  currentMonthlyFee     Float             @default(2000)
+  feeStructure          String? // JSON
+  totalPaid             Float             @default(0)
+  totalPending          Float             @default(0)
+  scholarshipPercentage Int               @default(0)
+  siblingDiscount       Boolean           @default(false)
+
+  // Progress Relations
+  progressReports   ProgressReport[]
+  skillMilestones   SkillMilestone[]
+  performanceTrends PerformanceTrend[]
+  lastAssessmentDate DateTime?
+  lastAssessmentScore Int?
+
+  // Gamification Relations
+  attendanceStreak    AttendanceStreak?      @relation("StudentAttendanceStreak")
+  attendanceBadges    AttendanceBadge[]      @relation("StudentAttendanceBadges")
+  leaderboardEntries  AttendanceLeaderboard[] @relation("StudentLeaderboard")
+
+  // ============================================
+  // ID CARD FIELDS
+  // ============================================
+  cardSerialNumber  String?   @unique // Auto-generated 16-char unique ID
+  cardVersion       Int       @default(1)
+  cardIssuedDate    DateTime  @default(now())
+  cardExpiryDate    DateTime?
+  lastCardUpdate    DateTime  @default(now())
+
+  // Digital Identity (QR, Barcode, Security)
+  qrCode            String?   // Encrypted QR payload JSON
+  barcode           String?   // Numeric barcode value
+  nfcSignature      String?   // Simulated NFC hash
+  blockchainHash    String?   // Simulated blockchain hash
+  digitalSignature  String?   // Cryptographic signature
+
+  // Membership & Access
+  membershipTier    String    @default("BASIC") // BASIC, BRONZE, SILVER, GOLD, PLATINUM, VIP
+  accessLevel       String    @default("STUDENT") // STUDENT, PREMIUM_STUDENT, COACH_TRAINEE, VISITOR
+  feeStatus         String    @default("PENDING") // PAID, PENDING, OVERDUE, PARTIAL, WAIVED
+  gateAccess        Boolean   @default(true)
+
+  // Card Analytics
+  cardViews         Int       @default(0)
+  cardDownloads     Int       @default(0)
+  cardShares        Int       @default(0)
+  qrScans           Int       @default(0)
+  lastScan          DateTime?
+
+  // ID Card Relations
+  idCardHistory     IDCardHistory[]
+  idCardRequests    IDCardRequest[]
+  scanLogs          IDCardScan[]
+
+  @@map("students")
+}
+
+model Coach {
+  id      String @id @default(cuid())
+  coachId String @unique // COACH-2026-0001 format
+  userId  String @unique
+  user    User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Personal Info
+  fullName       String
+  dateOfBirth    DateTime?
+  gender         String? // MALE, FEMALE, OTHER, PREFER_NOT_TO_SAY
+  photoUrl       String?
+  actionPhotoUrl String?
+
+  // Contact Info
+  phone          String?
+  phoneSecondary String?
+  email          String?
+  whatsapp       String?
+  emergencyContactName  String?
+  emergencyContactPhone String?
+
+  // Address Info
+  address      String?  // Legacy field
+  addressLine1 String?
+  addressLine2 String?
+  city         String?
+  state        String?
+  postalCode   String?
+  country      String   @default("India")
+
+  // Professional Info
+  experienceYears       Int     @default(0)
+  coachingYears         Int     @default(0)
+  qualifications        String?
+  certifications        String? // JSON string array of certification objects
+  primarySpecialization String  @default("SPEED") // SPEED, FREESTYLE, DOUBLE_DUTCH, TEAM_DEMO, FITNESS
+  specializations       CoachSpecialization[]
+  bio                   String? // Coaching philosophy / about
+  education             String?
+  previousExperience    String?
+  achievements          String? // JSON string array
+
+  // Skills & Expertise
+  skillLevels String? // JSON: { speed: 8, freestyle: 7, endurance: 9, technique: 8 }
+  languages   String? // JSON: ["English", "Hindi", "Punjabi"]
+  ageGroups   String? // JSON: ["KIDS_5_7", "TEENS_12_15"]
+
+  // Salary Info (JSON for flexibility)
+  salaryStructure String? // JSON string
+
+  // Achievement Tracking
+  guinnessRecords  Int @default(0)
+  limcaRecords     Int @default(0)
+  indiaBookRecords Int @default(0)
+  nationalMedals   Int @default(0)
+  stateMedals      Int @default(0)
+  districtMedals   Int @default(0)
+
+  // Story & Bio
+  ropeSkippingJourney String?
+  coachingPhilosophy  String?
+
+  // Social Media
+  instagramHandle String?
+  youtubeChannel  String?
+  facebookProfile String?
+
+  // Documents (Uploaded File URLs)
+  resumeUrl         String?
+  idProofUrl        String?
+  addressProofUrl   String?
+  certificatesUrls  String? // JSON array of URLs
+  policeClearanceUrl String?
+
+  // Background Check
+  backgroundCheckStatus String  @default("PENDING") // PENDING, IN_PROGRESS, CLEARED, FLAGGED, REJECTED
+  backgroundCheckDate   DateTime?
+  backgroundCheckReport String?
+
+  // Video & Portfolio
+  introVideoUrl  String?
+  portfolioUrls  String? // JSON array of image/video URLs
+  demoClassUrl   String?
+
+  // References (JSON array of reference objects for quick access)
+  referencesData     String? // JSON: [{ name, org, email, phone }]
+  referencesVerified Boolean @default(false)
+
+  // Availability
+  availableDays  String? // JSON: ["MONDAY", "WEDNESDAY", "FRIDAY"]
+  availableTimes String? // JSON: { "MONDAY": ["17:00-19:00"] }
+  maxBatches     Int     @default(3)
+  maxStudents    Int     @default(30)
+
+  // Employment
+  employmentType String   @default("PART_TIME") // FULL_TIME, PART_TIME, CONTRACT, FREELANCE
+  contractSigned Boolean  @default(false)
+  contractUrl    String?
+  contractExpiry DateTime?
+
+  // Payment Details
+  bankAccountName   String?
+  bankAccountNumber String?
+  bankIfscCode      String?
+  panNumber         String?
+  commissionRate    Float   @default(60) // Percentage
+
+  // Verification & Approval
+  applicationStatus String  @default("DRAFT") // DRAFT, SUBMITTED, UNDER_REVIEW, DOCUMENTS_PENDING, INTERVIEW_SCHEDULED, INTERVIEW_COMPLETED, APPROVED, REJECTED, WITHDRAWN
+  verificationLevel String  @default("LEVEL_0") // LEVEL_0 to LEVEL_6
+
+  isVerified  Boolean   @default(false)
+  verifiedBy  String?
+  verifiedAt  DateTime?
+
+  isApproved  Boolean   @default(false)
+  approvedBy  String?
+  approvedAt  DateTime?
+
+  rejectionReason String?
+  rejectedAt      DateTime?
+
+  // Onboarding
+  onboardingCompleted Boolean @default(false)
+  onboardingProgress  String? // JSON: { step1: true, step2: false }
+  trainingCompleted   Boolean @default(false)
+  trainingScore       Int?
+
+  // Performance Metrics
+  totalStudentsTaught Int   @default(0)
+  totalBatches        Int   @default(0)
+  averageRating       Float @default(0)
+  totalReviews        Int   @default(0)
+
+  // Status
+  coachStatus String  @default("INACTIVE") // INACTIVE, ACTIVE, ON_LEAVE, SUSPENDED, TERMINATED
+  isActive    Boolean @default(false)
+
+  // Assigned Academies (JSON array of academy IDs)
+  assignedAcademies String? // JSON string array
+
+  // Metadata
+  notes String?
+  tags  String? // JSON array
+
+  // Timestamps
+  joiningDate DateTime  @default(now())
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  lastActive  DateTime?
+
+  // Relations
+  students          Student[]
+  batches           Batch[]
+  attendancesMarked Attendance[]
+  trainingNotes     TrainingNote[]
+  studyMaterials    StudyMaterial[]
+  salaryRecords     SalaryRecord[]
+  leaves            Leave[]
+  headOfAcademy     Academy?              @relation("AcademyHeadCoach")
+  progressReports   ProgressReport[]
+  documents         CoachDocument[]
+  references        CoachReference[]
+  interviews        CoachInterview[]
+
+  @@index([applicationStatus])
+  @@index([isVerified])
+  @@index([isApproved])
+  @@index([coachStatus])
+  @@map("coaches")
+}
+
+// ============================================
+// COACH ONBOARDING MODELS
+// ============================================
+
+model CoachDocument {
+  id      String @id @default(cuid())
+  coachId String
+  coach   Coach  @relation(fields: [coachId], references: [id], onDelete: Cascade)
+
+  // Document Details
+  type     String // RESUME, ID_PROOF, ADDRESS_PROOF, EDUCATION_CERTIFICATE, COACHING_CERTIFICATE, POLICE_CLEARANCE, MEDICAL_CERTIFICATE, PHOTO, CONTRACT, OTHER
+  name     String
+  fileUrl  String
+  fileSize Int?     // bytes
+  fileType String?  // "application/pdf"
+
+  // Verification
+  isVerified        Boolean   @default(false)
+  verifiedBy        String?
+  verifiedAt        DateTime?
+  verificationNotes String?
+
+  // Status
+  status String @default("PENDING") // PENDING, VERIFIED, REJECTED, EXPIRED
+
+  // Expiry (for certificates)
+  expiryDate DateTime?
+
+  // Timestamps
+  uploadedAt DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([coachId])
+  @@index([type])
+  @@map("coach_documents")
+}
+
+model CoachReference {
+  id      String @id @default(cuid())
+  coachId String
+  coach   Coach  @relation(fields: [coachId], references: [id], onDelete: Cascade)
+
+  // Reference Details
+  name         String
+  organization String?
+  position     String?
+  relationship String? // "Previous Employer", "Colleague"
+
+  // Contact
+  email String?
+  phone String?
+
+  // Verification
+  verificationSent  Boolean  @default(false)
+  verificationToken String?  @unique
+
+  isVerified Boolean   @default(false)
+  verifiedAt DateTime?
+
+  // Feedback
+  rating         Int?     // 1-5
+  feedback       String?
+  wouldRecommend Boolean?
+
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([coachId])
+  @@map("coach_references")
+}
+
+model CoachInterview {
+  id      String @id @default(cuid())
+  coachId String
+  coach   Coach  @relation(fields: [coachId], references: [id], onDelete: Cascade)
+
+  // Scheduling
+  scheduledDate DateTime
+  scheduledTime String?  // "14:00"
+  duration      Int      @default(30) // minutes
+
+  // Interview Details
+  interviewerId String? // Admin/HR user ID
+  interviewType String  @default("VIDEO_CALL") // PHONE_SCREENING, VIDEO_CALL, IN_PERSON, DEMO_CLASS, FINAL_ROUND
+  location      String? // Address or "Online"
+  meetingLink   String? // Zoom/Google Meet
+
+  // Status
+  status String @default("SCHEDULED") // SCHEDULED, CONFIRMED, RESCHEDULED, COMPLETED, CANCELLED, NO_SHOW
+
+  // Outcome
+  result   String? // PASS, CONDITIONAL_PASS, FAIL, PENDING_DECISION
+  notes    String?
+  rating   Int?    // 1-10
+  feedback String?
+
+  // Recording
+  recordingUrl String?
+
+  // Timestamps
+  completedAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([coachId])
+  @@index([scheduledDate])
+  @@map("coach_interviews")
+}
+
+model Admin {
+  id     String @id @default(cuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Personal Info
+  fullName String
+  phone    String?
+  photoUrl String?
+
+  // Permissions (JSON for flexibility)
+  permissions String? // JSON string
+
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("admins")
+}
+
+// ============================================
+// ACADEMY MANAGEMENT MODELS
+// ============================================
+
+model Academy {
+  id             String  @id @default(cuid())
+  name           String  @unique
+  location       String  @default("")
+  address        String?
+  description    String?
+  locationLat    Float?
+  locationLng    Float?
+  contactPhone   String?
+  contactEmail   String? @unique
+  operatingHours String? // JSON string
+  facilities     String? // JSON string array
+  capacity       Int     @default(100)
+  academyType    String  @default("TRAINING_CENTER") // PARTNER_SCHOOL, TRAINING_CENTER, FRANCHISE
+  status         String  @default("ACTIVE") // ACTIVE, INACTIVE, UNDER_MAINTENANCE, PLANNED
+
+  // Head Coach Assignment
+  headCoachId String? @unique
+  headCoach   Coach?  @relation("AcademyHeadCoach", fields: [headCoachId], references: [id])
+
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  students          Student[]
+  batches           Batch[]
+  classSchedules    ClassSchedule[]
+  announcements     Announcement[]
+  events            Event[]
+  academyFacilities AcademyFacility[]
+
+  // Finance Relations
+  payments           Payment[]
+  standardMonthlyFee Float     @default(2000)
+
+  @@index([status])
+  @@index([headCoachId])
+  @@map("academies")
+}
+
+model Batch {
+  id          String  @id @default(cuid())
+  name        String
+  code        String? @unique // e.g., "MEB-2024" auto-generated
+  description String?
+  academyId   String
+  academy     Academy @relation(fields: [academyId], references: [id])
+  coachId     String?
+  coach       Coach?  @relation(fields: [coachId], references: [id])
+
+  // Batch Details
+  skillLevel      String  @default("BEGINNER") // BEGINNER, INTERMEDIATE, ADVANCED, COMPETITIVE
+  ageGroup        String  @default("MIXED") // KIDS_5_7, KIDS_8_11, TEENS_12_15, YOUTH_16_PLUS, MIXED
+  batchType       String  @default("REGULAR") // REGULAR, COMPETITIVE, BEGINNER, ADVANCED, WORKSHOP, SUMMER_CAMP
+  minAge          Int?
+  maxAge          Int?
+  maxCapacity     Int     @default(30)
+  currentStrength Int     @default(0)
+  daysOfWeek      String? // JSON array: ["Monday", "Wednesday", "Friday"]
+  startTime       String?
+  endTime         String?
+  monthlyFee      Float   @default(0)
+  status          String  @default("ACTIVE") // ACTIVE, INACTIVE, PENDING, FULL, UPCOMING
+
+  // Session Tracking
+  totalSessions     Int @default(0)
+  completedSessions Int @default(0)
+  sessionsPerWeek   Int @default(3)
+
+  // Dates
+  startDate DateTime?
+  endDate   DateTime?
+
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  students       Student[]
+  classSchedules ClassSchedule[]
+  attendances    Attendance[]
+
+  // Finance Relations
+  payments Payment[]
+
+  // Gamification Relations
+  leaderboard AttendanceLeaderboard[] @relation("BatchLeaderboard")
+
+  @@index([coachId])
+  @@index([academyId])
+  @@index([status])
+  @@map("batches")
+}
+
+model ClassSchedule {
+  id        String  @id @default(cuid())
+  academyId String
+  academy   Academy @relation(fields: [academyId], references: [id])
+  batchId   String
+  batch     Batch   @relation(fields: [batchId], references: [id])
+
+  // Schedule Details
+  dayOfWeek Int // 0=Sunday, 1=Monday, etc.
+  startTime String
+  endTime   String
+  venue     String?
+  notes     String?
+  isActive  Boolean @default(true)
+
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("class_schedules")
+}
+
+model Attendance {
+  id        String  @id @default(cuid())
+  studentId String
+  student   Student @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  batchId   String
+  batch     Batch   @relation(fields: [batchId], references: [id])
+  coachId   String?
+  markedBy  Coach?  @relation(fields: [coachId], references: [id])
+
+  // Attendance Details
+  date     DateTime
+  status   String   @default("PRESENT") // PRESENT, ABSENT, LATE, EXCUSED, LEAVE
+  remarks  String?
+  markedAt DateTime @default(now())
+
+  // Late Arrival Tracking
+  arrivalTime   DateTime?
+  minutesLate   Int?
+  lateReason    String?
+
+  // Edit History
+  lastEditedAt  DateTime?
+  editCount     Int       @default(0)
+
+  // Additional
+  isExcused     Boolean   @default(false)
+  notes         String?
+
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([studentId, date, batchId])
+  @@index([studentId])
+  @@index([batchId])
+  @@index([date])
+  @@index([status])
+  @@index([coachId])
+  @@map("attendances")
+}
+
+// ============================================
+// PAYMENT & FEE MODELS
+// ============================================
+
+model Fee {
+  id            String  @id @default(cuid())
+  receiptNumber String  @unique
+  studentId     String
+  student       Student @relation(fields: [studentId], references: [id])
+
+  // Fee Details
+  amount      Float
+  dueDate     DateTime
+  paidDate    DateTime?
+  paymentMode String? // CASH, ONLINE, CHEQUE, UPI
+  status      String    @default("PENDING") // PAID, PENDING, OVERDUE, PROCESSING
+
+  // Additional Info
+  description   String?
+  month         String // e.g., "January 2024"
+  academicYear  String? // e.g., "2024-25"
+  discount      Float   @default(0)
+  lateFee       Float   @default(0)
+  totalAmount   Float // amount - discount + lateFee
+  transactionId String?
+  notes         String?
+
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("fees")
+}
+
+// ============================================
+// EVENT & COMPETITION MODELS
+// ============================================
+
+model Event {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  eventType   String   @default("INTERNAL") // STATE, NATIONAL, INTERNATIONAL, INTERNAL, ZONAL, DISTRICT
+  academyId   String?
+  academy     Academy? @relation(fields: [academyId], references: [id])
+
+  // Event Details
+  venue                String?
+  startDate            DateTime
+  endDate              DateTime?
+  registrationDeadline DateTime?
+  entryFee             Float     @default(0)
+  maxParticipants      Int?
+  eligibleAgeGroups    String? // JSON array
+  eligibleSkillLevels  String? // JSON array
+  rules                String? // JSON or text
+
+  // Status
+  isActive    Boolean @default(true)
+  isPublished Boolean @default(false)
+
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  categories    EventCategory[]
+  registrations EventRegistration[]
+  results       EventResult[]
+
+  @@map("events")
+}
+
+model EventCategory {
+  id      String @id @default(cuid())
+  eventId String
+  event   Event  @relation(fields: [eventId], references: [id], onDelete: Cascade)
+
+  // Category Details
+  name            String // e.g., "Speed 30 Seconds", "Freestyle Individual"
+  description     String?
+  ageGroup        String?
+  skillLevel      String? // BEGINNER, INTERMEDIATE, ADVANCED, COMPETITIVE
+  maxParticipants Int?
+
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  registrations EventRegistration[]
+  results       EventResult[]
+
+  @@map("event_categories")
+}
+
+model EventRegistration {
+  id         String         @id @default(cuid())
+  eventId    String
+  event      Event          @relation(fields: [eventId], references: [id])
+  studentId  String
+  student    Student        @relation(fields: [studentId], references: [id])
+  categoryId String?
+  category   EventCategory? @relation(fields: [categoryId], references: [id])
+
+  // Registration Details
+  registrationDate DateTime @default(now())
+  paymentStatus    String   @default("PENDING") // PAID, PENDING, OVERDUE, PROCESSING
+  status           String   @default("PENDING") // PENDING, APPROVED, REJECTED, UNDER_REVIEW
+  notes            String?
+
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([eventId, studentId, categoryId])
+  @@map("event_registrations")
+}
+
+model EventResult {
+  id         String         @id @default(cuid())
+  eventId    String
+  event      Event          @relation(fields: [eventId], references: [id])
+  categoryId String?
+  category   EventCategory? @relation(fields: [categoryId], references: [id])
+  studentId  String
+
+  // Result Details
+  rank           Int?
+  medalType      String? // GOLD, SILVER, BRONZE
+  score          Float?
+  timing         String? // For speed events
+  remarks        String?
+  photos         String? // JSON array of URLs
+  videos         String? // JSON array of URLs
+  certificateUrl String?
+
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("event_results")
+}
+
+model Achievement {
+  id        String  @id @default(cuid())
+  studentId String
+  student   Student @relation(fields: [studentId], references: [id])
+
+  // Achievement Details
+  title           String
+  description     String?
+  achievementType String? // e.g., "Guinness Record", "National Medal"
+  eventName       String?
+  eventDate       DateTime?
+  medalType       String? // GOLD, SILVER, BRONZE
+  certificateUrl  String?
+  photos          String? // JSON array of URLs
+  isVerified      Boolean   @default(false)
+
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("achievements")
+}
+
+// ============================================
+// LEARNING MANAGEMENT MODELS
+// ============================================
+
+model StudyMaterial {
+  id          String  @id @default(cuid())
+  title       String
+  description String?
+  coachId     String?
+  uploadedBy  Coach?  @relation(fields: [coachId], references: [id])
+
+  // Material Details
+  materialType   String // "VIDEO", "PDF", "DOCUMENT", "LINK"
+  fileUrl        String?
+  thumbnailUrl   String?
+  duration       Int? // In minutes for videos
+  skillLevel     String? // BEGINNER, INTERMEDIATE, ADVANCED, COMPETITIVE
+  targetStudents String? // JSON array of student IDs or "ALL"
+  isPublic       Boolean @default(false)
+
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  studentMaterials StudentMaterial[]
+
+  @@map("study_materials")
+}
+
+model StudentMaterial {
+  id         String        @id @default(cuid())
+  studentId  String
+  student    Student       @relation(fields: [studentId], references: [id])
+  materialId String
+  material   StudyMaterial @relation(fields: [materialId], references: [id])
+
+  // Access Tracking
+  accessedAt  DateTime?
+  completedAt DateTime?
+  progress    Int       @default(0) // Percentage
+  notes       String?
+
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([studentId, materialId])
+  @@map("student_materials")
+}
+
+model TrainingNote {
+  id      String @id @default(cuid())
+  coachId String
+  coach   Coach  @relation(fields: [coachId], references: [id])
+
+  // Note Details
+  title           String
+  content         String
+  sessionDate     DateTime
+  skillsFocused   String? // JSON array
+  improvements    String?
+  recommendations String?
+  isPrivate       Boolean  @default(true)
+
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("training_notes")
+}
+
+// ============================================
+// COMMUNICATION MODELS
+// ============================================
+
+model Announcement {
+  id        String   @id @default(cuid())
+  title     String
+  content   String
+  academyId String?
+  academy   Academy? @relation(fields: [academyId], references: [id])
+
+  // Announcement Details
+  priority        String    @default("MEDIUM") // LOW, MEDIUM, HIGH, URGENT
+  targetAudience  String? // JSON: { roles: [], academies: [], batches: [] }
+  deliveryMethods String? // JSON: ["IN_APP", "EMAIL", "SMS"]
+  deliveryStats   String? // JSON: { sent: 0, read: 0, failed: 0 }
+  publishedAt     DateTime?
+  expiresAt       DateTime?
+  isActive        Boolean   @default(true)
+
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  recipients AnnouncementRecipient[]
+
+  @@map("announcements")
+}
+
+model AnnouncementRecipient {
+  id             String       @id @default(cuid())
+  announcementId String
+  announcement   Announcement @relation(fields: [announcementId], references: [id], onDelete: Cascade)
+  userId         String
+
+  // Delivery Status
+  deliveredAt    DateTime?
+  readAt         DateTime?
+  deliveryMethod String?
+
+  // Timestamps
+  createdAt DateTime @default(now())
+
+  @@unique([announcementId, userId])
+  @@map("announcement_recipients")
+}
+
+model Notification {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Notification Details
+  title     String
+  message   String
+  type      String // "INFO", "SUCCESS", "WARNING", "ERROR"
+  category  String? // REQUEST, LEAVE, FEE, ATTENDANCE, EVENT, ANNOUNCEMENT, SYSTEM
+  actionUrl String?
+  metadata  String? // JSON
+  isRead    Boolean   @default(false)
+  readAt    DateTime?
+
+  // Related entity
+  relatedId   String?
+  relatedType String?
+
+  // Timestamps
+  createdAt DateTime @default(now())
+
+  @@index([userId, isRead])
+  @@map("notifications")
+}
+
+model Request {
+  id String @id @default(cuid())
+
+  // Requester Information (can be Student or Coach)
+  requesterId   String
+  requesterRole String // STUDENT, COACH
+
+  // Request Details
+  type        String // LEAVE, MEDICAL_LEAVE, PROFILE_UPDATE, ACADEMY_TRANSFER, BATCH_TRANSFER, FEE_CONCESSION, COMPLAINT, QUERY, OTHER
+  category    String? // Sub-category for organization
+  subject     String
+  description String
+
+  // Type-specific data stored as JSON
+  data String? // JSON - stores leave dates, profile changes, transfer details, etc.
+
+  // Status & Priority
+  status   String @default("PENDING") // PENDING, UNDER_REVIEW, APPROVED, REJECTED, CANCELLED, RESOLVED
+  priority String @default("MEDIUM") // LOW, MEDIUM, HIGH, URGENT
+
+  // Admin Handling
+  assignedToId String? // Admin assigned to handle
+  reviewedById String? // Admin who reviewed
+  adminNote    String? // Admin's note/reason
+
+  // Attachments (JSON array of URLs)
+  attachments String?
+
+  // Timestamps
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  reviewedAt DateTime?
+  resolvedAt DateTime?
+
+  // Metadata
+  ipAddress String?
+  userAgent String?
+
+  @@index([requesterId])
+  @@index([status])
+  @@index([type])
+  @@index([priority])
+  @@index([createdAt])
+  @@index([assignedToId])
+  @@map("requests")
+}
+
+model Leave {
+  id String @id @default(cuid())
+
+  // Who is taking leave (Student or Coach)
+  studentId String?
+  student   Student? @relation(fields: [studentId], references: [id])
+  coachId   String?
+  coach     Coach?   @relation(fields: [coachId], references: [id])
+  userRole  String // STUDENT, COACH
+
+  // Leave Details
+  leaveType          String // CASUAL, MEDICAL, EMERGENCY, PERSONAL, VACATION, EDUCATIONAL
+  startDate          DateTime
+  endDate            DateTime
+  reason             String?
+  supportingDocument String? // URL to uploaded file
+
+  // Status
+  status String @default("PENDING") // PENDING, APPROVED, REJECTED, CANCELLED
+
+  // Approval
+  approvedById    String?
+  approvalNote    String?
+  approvedAt      DateTime?
+  rejectionReason String?
+
+  // Link to originating request (optional)
+  requestId String? @unique
+
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([studentId])
+  @@index([coachId])
+  @@index([status])
+  @@index([startDate, endDate])
+  @@map("leaves")
+}
+
+// ============================================
+// ADMINISTRATIVE MODELS
+// ============================================
+
+model CoachSpecialization {
+  id              String  @id @default(cuid())
+  coachId         String
+  coach           Coach   @relation(fields: [coachId], references: [id], onDelete: Cascade)
+  specialization  String // SPEED, FREESTYLE, DOUBLE_DUTCH, TEAM_DEMO, FITNESS
+  yearsExperience Int     @default(0)
+  isPrimary       Boolean @default(false)
+
+  // Timestamps
+  createdAt DateTime @default(now())
+
+  @@unique([coachId, specialization])
+  @@map("coach_specializations")
+}
+
+model AcademyFacility {
+  id        String  @id @default(cuid())
+  academyId String
+  academy   Academy @relation(fields: [academyId], references: [id], onDelete: Cascade)
+
+  // Facility Details
+  name            String
+  description     String?
+  quantity        Int       @default(1)
+  condition       String? // "GOOD", "FAIR", "NEEDS_REPAIR", "OUT_OF_SERVICE"
+  purchaseDate    DateTime?
+  lastMaintenance DateTime?
+  nextMaintenance DateTime?
+  value           Float?
+
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("academy_facilities")
+}
+
+model SalaryRecord {
+  id      String @id @default(cuid())
+  coachId String
+  coach   Coach  @relation(fields: [coachId], references: [id])
+
+  // Salary Details
+  month         String // "January 2024"
+  year          Int
+  baseSalary    Float
+  bonuses       Float     @default(0)
+  deductions    Float     @default(0)
+  netSalary     Float
+  paymentMode   String? // CASH, ONLINE, CHEQUE, UPI
+  paymentDate   DateTime?
+  status        String    @default("PENDING") // PAID, PENDING, OVERDUE, PROCESSING
+  transactionId String?
+  notes         String?
+
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([coachId, month, year])
+  @@map("salary_records")
+}
+
+model SystemSettings {
+  id          String  @id @default(cuid())
+  key         String  @unique
+  value       String
+  category    String? // "GENERAL", "FEE", "NOTIFICATION", "SECURITY"
+  description String?
+  isPublic    Boolean @default(false)
+
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("system_settings")
+}
+
+model AuditLog {
+  id     String  @id @default(cuid())
+  userId String?
+  user   User?   @relation(fields: [userId], references: [id])
+
+  // Log Details
+  action     String // "CREATE", "UPDATE", "DELETE", "LOGIN", "LOGOUT"
+  entityType String // "USER", "STUDENT", "COACH", "FEE", etc.
+  entityId   String?
+  oldValue   String? // JSON
+  newValue   String? // JSON
+  ipAddress  String?
+  userAgent  String?
+
+  // Timestamps
+  createdAt DateTime @default(now())
+
+  @@map("audit_logs")
+}
+
+// ============================================
+// LEAD MANAGEMENT MODELS
+// ============================================
+
+model QuickLead {
+  id                String  @id @default(cuid())
+  name              String
+  phone             String
+  age               String
+  preferredLocation String
+  status            String  @default("PENDING") // PENDING, CONTACTED, CONVERTED, CLOSED
+  notes             String?
+
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("quick_leads")
+}
+
+model ContactMessage {
+  id        String  @id @default(cuid())
+  firstName String
+  lastName  String?
+  email     String
+  phone     String?
+  message   String
+  status    String  @default("UNREAD") // UNREAD, READ, REPLIED, ARCHIVED
+  notes     String?
+
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("contact_messages")
+}
+
+// ============================================
+// FINANCE MANAGEMENT MODELS (PHASE 4)
+// ============================================
+
+model Payment {
+  id String @id @default(cuid())
+
+  // Student Information
+  studentId String
+  student   Student @relation(fields: [studentId], references: [id], onDelete: Restrict)
+
+  // Payment Details
+  amount      Float // Using Float for SQLite compatibility
+  paymentType String // Enum: MONTHLY_FEE, REGISTRATION_FEE, etc.
+  category    String @default("MONTHLY_FEE") // Enum: MONTHLY_FEE, ONE_TIME_FEE...
+
+  // Payment Status
+  status      String  @default("PENDING") // Enum: PENDING, PAID, OVERDUE, PARTIALLY_PAID, CANCELLED, REFUNDED
+  paymentMode String? // Enum: CASH, ONLINE, UPI, CHEQUE...
+
+  // Dates
+  dueDate     DateTime
+  paymentDate DateTime?
+
+  // Invoice & Receipt
+  invoiceNumber String  @unique
+  receiptNumber String? @unique
+  receiptUrl    String?
+
+  // Transaction Details
+  transactionId String?
+  chequeNumber  String?
+  bankReference String?
+
+  // Financial Tracking
+  lateFee   Float @default(0)
+  discount  Float @default(0)
+  netAmount Float // amount - discount + lateFee
+
+  // Metadata
+  monthYear String? // "YYYY-MM"
+  academyId String
+  academy   Academy @relation(fields: [academyId], references: [id])
+  batchId   String?
+  batch     Batch?  @relation(fields: [batchId], references: [id])
+
+  // Notes
+  notes         String?
+  internalNotes String?
+
+  // Processing
+  processedBy     String?
+  processedByUser User?   @relation("PaymentsProcessed", fields: [processedBy], references: [id])
+
+  // Reminders
+  reminderSent   Boolean   @default(false)
+  reminderSentAt DateTime?
+
+  // Relations
+  reminders PaymentReminder[]
+
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([studentId])
+  @@index([status])
+  @@index([paymentType])
+  @@index([dueDate])
+  @@index([paymentDate])
+  @@index([monthYear])
+  @@index([academyId])
+  @@map("payments")
+}
+
+model FeeStructure {
+  id          String  @id @default(cuid())
+  name        String // "Beginner Standard"
+  description String?
+
+  // Fee Amounts
+  monthlyFee      Float
+  registrationFee Float
+
+  // Applicability
+  skillLevels  String? // JSON array
+  academyTypes String? // JSON array
+  ageMin       Int?
+  ageMax       Int?
+
+  // Status
+  isActive      Boolean   @default(true)
+  effectiveFrom DateTime
+  effectiveTo   DateTime?
+
+  // Creators
+  createdBy     String?
+  createdByUser User?   @relation(fields: [createdBy], references: [id])
+
+  // Timestamps
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([isActive])
+  @@map("fee_structures")
+}
+
+model PaymentReminder {
+  id String @id @default(cuid())
+
+  paymentId String
+  payment   Payment @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+
+  studentId String
+  student   Student @relation(fields: [studentId], references: [id])
+
+  reminderType String // Enum: UPCOMING, DUE_TODAY, GRACE_PERIOD, OVERDUE, FINAL_NOTICE
+  sentAt       DateTime @default(now())
+  sentVia      String? // JSON array ["email", "sms"]
+
+  opened   Boolean   @default(false)
+  openedAt DateTime?
+
+  @@index([paymentId])
+  @@index([studentId])
+  @@map("payment_reminders")
+}
+
+model FinancialReport {
+  id String @id @default(cuid())
+
+  reportType String // Enum: MONTHLY, QUARTERLY, ANNUAL, CUSTOM
+  period     String // "2024-01", "Q1-2024"
+
+  // Summary
+  totalRevenue Float
+  totalPending Float
+  totalOverdue Float
+
+  // Breakdown
+  revenueByType    String? // JSON
+  revenueByAcademy String? // JSON
+
+  // Metrics
+  collectionRate Float
+  averageRevenue Float
+  studentCount   Int
+
+  // Metadata
+  generatedBy     String
+  generatedByUser User   @relation(fields: [generatedBy], references: [id])
+
+  // Timestamps
+  generatedAt DateTime @default(now())
+
+  @@index([reportType, period])
+  @@map("financial_reports")
+}
+
+// ============================================
+// PROGRESS & EVALUATION MODELS (PHASE 8)
+// ============================================
+
+model ProgressReport {
+  id          String   @id @default(cuid())
+  
+  // Student & Coach
+  studentId   String
+  student     Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  
+  coachId     String
+  coach       Coach    @relation(fields: [coachId], references: [id])
+  
+  // Assessment Details
+  assessmentType String   @default("REGULAR") // REGULAR, LEVEL_ADVANCEMENT, COMPETITION_PREP
+  date        DateTime @default(now())
+  
+  // Skill Level Snapshot
+  currentLevel String // BEGINNER, INTERMEDIATE, ADVANCED
+  recommendedLevel String?
+  
+  // Raw Performance Metrics
+  speed       Int      // Jumps per minute
+  endurance   Decimal  // Minutes (e.g., 4.50)
+  freestyle   Int      // Number of tricks mastered
+  doubleUnders Int     // Consecutive count
+  
+  // Additional Metrics
+  crossovers  Int?
+  power       Int?
+  coordination Int?
+  rhythm      Int?
+  
+  // Proficiency Scores (0-100 for progress bars)
+  speedScore      Int  @default(0)
+  enduranceScore  Int  @default(0)
+  freestyleScore  Int  @default(0)
+  doubleUndersScore Int @default(0)
+  techniqueScore  Int  @default(0)
+  
+  // Overall Assessment
+  overallScore    Int  @default(0)
+  performanceGrade String @default("C") // A_PLUS, A, B_PLUS...
+  
+  // Coach Feedback
+  feedback    String
+  strengths   String?  // JSON array
+  improvements String? // JSON array
+  goals       String?  // JSON array
+  
+  // Comparison Data
+  batchAverage Int?
+  improvement  Int?
+  
+  // Metadata
+  notes       String?
+  videoUrl    String?
+  attachments String?  // JSON array
+  
+  // Status
+  status      String   @default("PUBLISHED") // DRAFT, PUBLISHED
+  isPrivate   Boolean  @default(false)
+  
+  // Timestamps
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@index([studentId])
+  @@index([coachId])
+  @@index([date])
+  @@map("progress_reports")
+}
+
+model SkillMilestone {
+  id              String    @id @default(cuid())
+  
+  studentId       String
+  student         Student   @relation(fields: [studentId], references: [id])
+  
+  milestoneType   String // SPEED_THRESHOLD, ENDURANCE_GOAL...
+  skillCategory   String? // SPEED, ENDURANCE...
+  
+  // Milestone Details
+  title           String
+  description     String
+  targetValue     Int
+  achievedValue   Int
+  unit            String
+  
+  // Achievement
+  isAchieved      Boolean   @default(false)
+  achievedDate    DateTime?
+  
+  // Recognition
+  badge           String?
+  points          Int       @default(0)
+  
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+  
+  @@index([studentId])
+  @@index([isAchieved])
+  @@map("skill_milestones")
+}
+
+model PerformanceTrend {
+  id              String    @id @default(cuid())
+  
+  studentId       String
+  student         Student   @relation(fields: [studentId], references: [id])
+  
+  // Trend Period
+  startDate       DateTime
+  endDate         DateTime
+  periodType      String // WEEKLY, MONTHLY
+  
+  // Aggregated Metrics
+  avgSpeed        Decimal
+  avgEndurance    Decimal
+  avgFreestyle    Decimal
+  avgDoubleUnders Decimal
+  
+  // Trend Analysis
+  speedTrend      String // IMPROVING, STABLE, DECLINING
+  enduranceTrend  String
+  freestyleTrend  String
+  doubleUndersTrend String
+  
+  // Improvement Metrics
+  totalImprovement Int
+  consistencyScore Int
+  
+  // Metadata
+  reportCount     Int
+  generatedAt     DateTime  @default(now())
+  
+  @@index([studentId])
+  @@map("performance_trends")
+}
+
+// ============================================
+// ATTENDANCE GAMIFICATION
+// ============================================
+
+model AttendanceStreak {
+  id              String   @id @default(cuid())
+  
+  studentId       String   @unique
+  student         Student  @relation("StudentAttendanceStreak", fields: [studentId], references: [id], onDelete: Cascade)
+  
+  // Streak Tracking
+  currentStreak   Int      @default(0)
+  longestStreak   Int      @default(0)
+  lastAttendanceDate DateTime?
+  
+  // Points & Achievements
+  totalPoints     Int      @default(0)
+  monthlyPoints   Int      @default(0)
+  
+  // Stats
+  totalPresent    Int      @default(0)
+  totalAbsent     Int      @default(0)
+  totalLate       Int      @default(0)
+  
+  // Timestamps
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  @@map("attendance_streaks")
+}
+
+model AttendanceBadge {
+  id              String   @id @default(cuid())
+  
+  studentId       String
+  student         Student  @relation("StudentAttendanceBadges", fields: [studentId], references: [id], onDelete: Cascade)
+  
+  // Badge Details
+  type            String   // PERFECT_WEEK, PERFECT_MONTH, HUNDRED_CLUB, EARLY_BIRD, COMEBACK_CHAMPION
+  name            String   // "7 Day Champion", "Monthly Star", etc.
+  description     String
+  icon            String   // Emoji or icon name
+  
+  // Achievement
+  earnedAt        DateTime @default(now())
+  
+  // Points awarded for this badge
+  pointsAwarded   Int      @default(0)
+  
+  @@unique([studentId, type])
+  @@index([studentId])
+  @@index([type])
+  @@map("attendance_badges")
+}
+
+model AttendanceLeaderboard {
+  id              String   @id @default(cuid())
+  
+  studentId       String
+  student         Student  @relation("StudentLeaderboard", fields: [studentId], references: [id], onDelete: Cascade)
+  
+  batchId         String
+  batch           Batch    @relation("BatchLeaderboard", fields: [batchId], references: [id])
+  
+  // Period (e.g., "2026-02" for February 2026)
+  period          String
+  
+  // Rankings
+  rank            Int
+  totalPoints     Int      @default(0)
+  attendanceRate  Int      @default(0) // Percentage
+  streakDays      Int      @default(0)
+  
+  // Metadata
+  calculatedAt    DateTime @default(now())
+  
+  @@unique([studentId, batchId, period])
+  @@index([batchId, period])
+  @@index([rank])
+  @@map("attendance_leaderboard")
+}
+
+// ============================================
+// ID CARD MANAGEMENT MODELS
+// ============================================
+
+model IDCardHistory {
+  id                String   @id @default(cuid())
+
+  studentId         String
+  student           Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  // Version Details
+  version           Int
+  cardSerialNumber  String
+
+  // What Changed
+  changes           String?  // JSON object of field changes
+  changeReason      String?
+
+  // Snapshot
+  cardData          String?  // JSON full card data at this version
+
+  // Metadata
+  issuedBy          String?  // Admin user ID
+  issuedAt          DateTime @default(now())
+  validUntil        DateTime?
+
+  // Status
+  isCurrent         Boolean  @default(false)
+  isRevoked         Boolean  @default(false)
+  revokedReason     String?
+  revokedAt         DateTime?
+
+  @@index([studentId])
+  @@index([version])
+  @@map("id_card_history")
+}
+
+model IDCardRequest {
+  id                String   @id @default(cuid())
+
+  studentId         String
+  student           Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  // Request Details
+  requestType       String   // NEW_ISSUE, REPLACEMENT_LOST, REPLACEMENT_DAMAGED, REPLACEMENT_STOLEN, UPDATE_DETAILS
+  reason            String
+
+  // Lost/Damaged Details
+  lastSeenDate      DateTime?
+  lastSeenLocation  String?
+  policeReportFiled Boolean  @default(false)
+  policeReportNumber String?
+
+  // Replacement Details
+  urgency           String   @default("NORMAL") // LOW, NORMAL, HIGH, URGENT
+  replacementFee    Float    @default(0)
+  feePaid           Boolean  @default(false)
+
+  // Status
+  status            String   @default("PENDING") // PENDING, UNDER_REVIEW, APPROVED, REJECTED, CANCELLED
+  approvedBy        String?
+  approvedAt        DateTime?
+  rejectionReason   String?
+
+  // Fulfillment
+  newCardSerial     String?
+  issuedAt          DateTime?
+
+  // Timestamps
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  @@index([studentId])
+  @@index([status])
+  @@map("id_card_requests")
+}
+
+model IDCardScan {
+  id                String   @id @default(cuid())
+
+  studentId         String
+  student           Student  @relation(fields: [studentId], references: [id], onDelete: Cascade)
+
+  // Scan Details
+  scanType          String   // QR_CODE, BARCODE, NFC, MANUAL_ENTRY
+  scanMethod        String?  // MOBILE_APP, WEB_PORTAL, PHYSICAL_SCANNER
+
+  // Location
+  locationName      String?  // "Main Gate", "Training Hall A"
+
+  // Purpose
+  purpose           String?  // ENTRY, EXIT, ATTENDANCE, VERIFICATION
+
+  // Verification
+  verificationStatus String  @default("VERIFIED") // VERIFIED, INVALID, EXPIRED, SUSPENDED
+
+  // Access
+  accessGranted     Boolean  @default(true)
+
+  // Timestamps
+  scannedAt         DateTime @default(now())
+
+  @@index([studentId])
+  @@index([scanType])
+  @@index([scannedAt])
+  @@map("id_card_scans")
+}

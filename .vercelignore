@@ -1,0 +1,14 @@
+# Ignore build cache and dependencies
+node_modules
+.next
+out
+build
+
+# Ignore local database files
+prisma/*.db
+prisma/*.db-journal
+prisma/*.sqlite
+
+# Ignore environment files
+.env
+.env.local
