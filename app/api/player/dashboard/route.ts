@@ -13,8 +13,7 @@ import {
     addDays,
     setHours,
     setMinutes,
-    isAfter,
-    startOfDay
+    isAfter
 } from 'date-fns'
 import { PlayerDashboardResponse, SkillLevel } from '@/types/api'
 
@@ -303,24 +302,95 @@ export async function GET(request: Request) {
             ? skillLevels[currentLevelIndex + 1]
             : null
 
-        const progressToNext = 68 // Use placeholder for now as per prompt instructions until Assessment module
-
         const nextAssessmentDate = addMonths(student.joiningDate,
             Math.floor(differenceInDays(new Date(), student.joiningDate) / 90) * 3 + 3
         )
         const daysUntilAssessment = differenceInDays(nextAssessmentDate, new Date())
 
-        // 9. Fetch recent achievements
-        const recentAchievements = await prisma.achievement.findMany({
-            where: {
-                studentId: student.id
-            },
-            orderBy: {
-                createdAt: 'desc' // using createdAt if achievementDate absent or check schema
-            },
-            take: 3
-        })
+        // 9. Fetch latest ProgressReport for real performance metrics + coach feedback
+        const [latestReport, reportCount, recentAchievements] = await Promise.all([
+            prisma.progressReport.findFirst({
+                where: {
+                    studentId: student.id,
+                    status: 'PUBLISHED'
+                },
+                orderBy: { date: 'desc' },
+                select: {
+                    id: true,
+                    speed: true,
+                    endurance: true,
+                    freestyle: true,
+                    doubleUnders: true,
+                    speedScore: true,
+                    enduranceScore: true,
+                    freestyleScore: true,
+                    doubleUndersScore: true,
+                    overallScore: true,
+                    feedback: true,
+                    date: true,
+                    coach: {
+                        select: {
+                            id: true,
+                            fullName: true,
+                            photoUrl: true
+                        }
+                    }
+                }
+            }),
 
+            prisma.progressReport.count({
+                where: {
+                    studentId: student.id,
+                    status: 'PUBLISHED'
+                }
+            }),
+
+            prisma.achievement.findMany({
+                where: { studentId: student.id },
+                orderBy: { createdAt: 'desc' },
+                take: 3
+            })
+        ])
+
+        // 10. Build performance metrics from real ProgressReport data
+        // Level-appropriate targets so progress bars are contextual per skill level
+        const levelTargets: Record<string, { speed: number; endurance: number; freestyle: number; doubleUnders: number }> = {
+            BEGINNER:     { speed: 80,  endurance: 3,  freestyle: 3,  doubleUnders: 10 },
+            INTERMEDIATE: { speed: 120, endurance: 5,  freestyle: 8,  doubleUnders: 30 },
+            ADVANCED:     { speed: 160, endurance: 8,  freestyle: 15, doubleUnders: 50 },
+            COMPETITIVE:  { speed: 200, endurance: 10, freestyle: 25, doubleUnders: 100 }
+        }
+        const targets = levelTargets[student.skillLevel] || levelTargets.BEGINNER
+
+        // Use proficiency scores (0-100) from the report for progress bar percentages
+        // Use raw metrics for current values; fall back to 0 if no report exists
+        const metricsData = {
+            speed: {
+                current: latestReport?.speed ?? 0,
+                target: targets.speed,
+                percentage: latestReport?.speedScore ?? 0
+            },
+            endurance: {
+                current: Number(latestReport?.endurance ?? 0),
+                target: targets.endurance,
+                percentage: latestReport?.enduranceScore ?? 0
+            },
+            freestyle: {
+                current: latestReport?.freestyle ?? 0,
+                target: targets.freestyle,
+                percentage: latestReport?.freestyleScore ?? 0
+            },
+            doubleUnders: {
+                current: latestReport?.doubleUnders ?? 0,
+                target: targets.doubleUnders,
+                percentage: latestReport?.doubleUndersScore ?? 0
+            }
+        }
+
+        // Use overallScore from the latest report as progress toward next level
+        const progressToNext = latestReport?.overallScore ?? 0
+
+        // 11. Build achievements data
         const achievementsData = recentAchievements.map(ach => ({
             id: ach.id,
             title: ach.title,
@@ -332,44 +402,26 @@ export async function GET(request: Request) {
                     ach.medalType === 'BRONZE' ? '🥉' : '🏆'
         }))
 
-        // 10. Fetch latest coach feedback
-        // Schema has TrainingNote but no direct simpler relation than query.
-        // Assuming training notes have some loose relation or we query by coach.
-        // The previous prompt code used batch_id which matches schema somewhat.
-        // Let's look at schema for TrainingNote: relation to coach, but no direct student relation except maybe inside content or implicit?
-        // Wait, the prompt implies `student_performances` JSON or something.
-        // In current schema `TrainingNote` has `coachId`. It does NOT have `batchId` or `studentId` directly. 
-        // It has `skillsFocused` JSON.
-        // However, we can look for `TrainingNote` created by the student's coach? Or simply omit if schema doesn't support well yet.
-        // Actually, check schema again -> `TrainingNote` has NO student relation. 
-        // But `StudentMaterial` has note? 
-        // Let's fallback to returning null for feedback or mocking if we can't find a direct link, but the prompt says findFirst where student_performances has studentId.
-        // The current schema provided in tool output for `TrainingNote` is:
-        /*
-          model TrainingNote {
-            id      String @id @default(cuid())
-            coachId String
-            coach   Coach  @relation(fields: [coachId], references: [id])
-            title           String
-            content         String
-            sessionDate     DateTime
-            skillsFocused   String? // JSON array
-            improvements    String?
-            recommendations String?
-            isPrivate       Boolean  @default(true)
-            ...
-          }
-        */
-        // It seems the schema in memory differs from the prompt's envisioned schema (which had batch_id and student_performances).
-        // I will return null for now to avoid breaking, or maybe check if there's a generic note.
-
-        // We will stick to 'null' for feedback to ensure type safety with current schema.
-        const feedbackData = {
+        // 12. Build coach feedback from ProgressReport (feedback field + coach relation)
+        const feedbackData = latestReport?.feedback ? {
+            latest: {
+                id: latestReport.id,
+                coach: {
+                    id: latestReport.coach.id,
+                    full_name: latestReport.coach.fullName,
+                    photo_url: latestReport.coach.photoUrl
+                },
+                message: latestReport.feedback,
+                date: latestReport.date.toISOString(),
+                sentiment: 'NEUTRAL' as const
+            },
+            count: reportCount
+        } : {
             latest: null,
-            count: 0
+            count: reportCount
         }
 
-        // 11. Compile response
+        // 13. Compile response — all data is now sourced from the database
         const responseData: PlayerDashboardResponse = {
             success: true,
             data: {
@@ -432,12 +484,7 @@ export async function GET(request: Request) {
                         date: nextAssessmentDate.toISOString(),
                         daysUntil: daysUntilAssessment
                     } : null,
-                    metrics: {
-                        speed: { current: 92, target: 100, percentage: 92 },
-                        endurance: { current: 4.5, target: 5, percentage: 90 },
-                        freestyle: { current: 4, target: 5, percentage: 80 },
-                        doubleUnders: { current: 22, target: 30, percentage: 73 }
-                    }
+                    metrics: metricsData
                 },
                 recentAchievements: achievementsData,
                 coachFeedback: feedbackData as any

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -148,21 +148,7 @@ export function PlayerRegistrationForm() {
     const [submittedId, setSubmittedId] = useState<string | null>(null)
     const [isSuccess, setIsSuccess] = useState(false)
 
-    // Phone Verification State
-    const [isPhoneVerified, setIsPhoneVerified] = useState(false)
-    const [showOtpInput, setShowOtpInput] = useState(false)
-    const [otp, setOtp] = useState("")
-    const [otpTimer, setOtpTimer] = useState(0)
-    const [isVerifyingPhone, setIsVerifyingPhone] = useState(false)
 
-    // Phone Verification Timer
-    useEffect(() => {
-        let interval: NodeJS.Timeout
-        if (otpTimer > 0) {
-            interval = setInterval(() => setOtpTimer(prev => prev - 1), 1000)
-        }
-        return () => clearInterval(interval)
-    }, [otpTimer])
 
     // Update form data and clear field error
     const updateField = (field: keyof FormData, value: string | boolean) => {
@@ -206,12 +192,6 @@ export function PlayerRegistrationForm() {
 
     // Handle Next with validation
     const handleNext = () => {
-        // Special check for Step 1 (Contact) - Phone Verified
-        if (currentStep === 1 && !isPhoneVerified) {
-            setFieldErrors(prev => ({ ...prev, phone: "Please verify your phone number to proceed" }))
-            return
-        }
-
         if (validateStep(currentStep)) {
             setCurrentStep(prev => Math.min(prev + 1, steps.length - 1))
         }
@@ -230,60 +210,7 @@ export function PlayerRegistrationForm() {
     }
 
     // Submit form to API
-    const requestOtp = async () => {
-        if (!formData.phone || formData.phone.length < 10) {
-            setFieldErrors(prev => ({ ...prev, phone: "Please enter a valid phone number" }))
-            return
-        }
 
-        setIsVerifyingPhone(true)
-        try {
-            const res = await fetch("/api/otp/send", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ identifier: formData.phone, type: "PHONE_VERIFY" })
-            })
-
-            if (!res.ok) throw new Error("Failed to send OTP")
-
-            setShowOtpInput(true)
-            setOtpTimer(30)
-            setFieldErrors(prev => ({ ...prev, phone: "" })) // Clear errors
-        } catch (error) {
-            console.error("OTP Send Error:", error)
-            setFieldErrors(prev => ({ ...prev, phone: "Failed to send verification code" }))
-        } finally {
-            setIsVerifyingPhone(false)
-        }
-    }
-
-    const verifyOtp = async () => {
-        if (!otp || otp.length !== 6) {
-            setFieldErrors(prev => ({ ...prev, otp: "Enter 6-digit code" }))
-            return
-        }
-
-        setIsVerifyingPhone(true)
-        try {
-            const res = await fetch("/api/otp/verify", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ identifier: formData.phone, token: otp, type: "PHONE_VERIFY" })
-            })
-
-            const data = await res.json()
-            if (!res.ok) throw new Error(data.error || "Invalid OTP")
-
-            setIsPhoneVerified(true)
-            setShowOtpInput(false)
-            setFieldErrors(prev => ({ ...prev, phone: "", otp: "" }))
-        } catch (error) {
-            console.error("OTP Verify Error:", error)
-            setFieldErrors(prev => ({ ...prev, otp: "Invalid code. Please try again." }))
-        } finally {
-            setIsVerifyingPhone(false)
-        }
-    }
 
     // Submit form to API
     const handleSubmit = async () => {
@@ -493,77 +420,14 @@ export function PlayerRegistrationForm() {
                             </div>
                             <div className="space-y-2">
                                 <Label>Phone <span className="text-red-500">*</span></Label>
-                                <div className="space-y-2">
-                                    <div className="flex gap-2">
-                                        <Input
-                                            type="tel"
-                                            placeholder="+91"
-                                            value={formData.phone}
-                                            onChange={(e) => {
-                                                updateField("phone", e.target.value)
-                                                if (isPhoneVerified) setIsPhoneVerified(false) // Reset verification on change
-                                            }}
-                                            className={fieldErrors.phone ? "border-red-500" : ""}
-                                            disabled={isPhoneVerified}
-                                        />
-                                        {!isPhoneVerified ? (
-                                            <Button
-                                                type="button"
-                                                variant="secondary"
-                                                onClick={requestOtp}
-                                                disabled={isVerifyingPhone || !formData.phone || formData.phone.length < 10 || showOtpInput}
-                                            >
-                                                {isVerifyingPhone ? <Loader2 className="h-4 w-4 animate-spin" /> : "Verify"}
-                                            </Button>
-                                        ) : (
-                                            <Button type="button" variant="ghost" className="text-green-600 cursor-default hover:text-green-600 hover:bg-transparent">
-                                                <CheckCircle2 className="h-5 w-5 mr-1" /> Verified
-                                            </Button>
-                                        )}
-                                    </div>
-                                    <FieldError field="phone" />
-
-                                    {/* OTP Input Section */}
-                                    {showOtpInput && !isPhoneVerified && (
-                                        <div className="flex gap-2 items-start animate-in fade-in slide-in-from-top-1">
-                                            <div className="flex-1">
-                                                <Input
-                                                    placeholder="Enter 6-digit code"
-                                                    value={otp}
-                                                    onChange={(e) => {
-                                                        const val = e.target.value.replace(/\D/g, '').slice(0, 6)
-                                                        setOtp(val)
-                                                        setFieldErrors(prev => ({ ...prev, otp: "" }))
-                                                    }}
-                                                    className={`text-center tracking-widest ${fieldErrors.otp ? "border-red-500" : ""}`}
-                                                    maxLength={6}
-                                                />
-                                                {fieldErrors.otp && (
-                                                    <p className="text-sm text-red-500 mt-1">{fieldErrors.otp}</p>
-                                                )}
-                                            </div>
-                                            <Button
-                                                type="button"
-                                                onClick={verifyOtp}
-                                                disabled={otp.length !== 6 || isVerifyingPhone}
-                                            >
-                                                {isVerifyingPhone ? <Loader2 className="h-4 w-4 animate-spin" /> : "Confirm"}
-                                            </Button>
-                                        </div>
-                                    )}
-                                    {showOtpInput && !isPhoneVerified && (
-                                        <div className="flex justify-between text-xs text-muted-foreground px-1">
-                                            <span>Enter code sent to {formData.phone}</span>
-                                            {otpTimer > 0 ? (
-                                                <span>Resend in {otpTimer}s</span>
-                                            ) : (
-                                                <button type="button" onClick={requestOtp} className="text-primary hover:underline">
-                                                    Resend Code
-                                                </button>
-                                            )}
-                                        </div>
-                                    )}
-                                </div>
+                                <Input
+                                    type="tel"
+                                    placeholder="+91"
+                                    value={formData.phone}
+                                    onChange={(e) => updateField("phone", e.target.value)}
+                                    className={fieldErrors.phone ? "border-red-500" : ""}
+                                />
+                                <FieldError field="phone" />
                             </div>
                         </div>
                         <div className="space-y-2">

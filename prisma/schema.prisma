@@ -7,9 +7,8 @@ generator client {
 }
 
 datasource db {
-  provider  = "postgresql"
-  url       = env("DATABASE_URL")
-  directUrl = env("DATABASE_URL_UNPOOLED")
+  provider = "postgresql"
+  url      = env("LIVE_DATABASE_URL")
 }
 
 // ============================================
@@ -71,18 +70,6 @@ model Session {
   expires      DateTime
 
   @@map("sessions")
-}
-
-model Otp {
-  id         String   @id @default(cuid())
-  identifier String
-  token      String // 6-digit code
-  type       String // "EMAIL_VERIFY", "PHONE_VERIFY", "PASSWORD_RESET"
-  expires    DateTime
-  createdAt  DateTime @default(now())
-
-  @@index([identifier])
-  @@map("otps")
 }
 
 // ============================================

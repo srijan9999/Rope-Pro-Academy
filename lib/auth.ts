@@ -146,66 +146,8 @@ export const authOptions: NextAuthOptions = {
             credentials: {
                 email: { label: "Email", type: "email" },
                 password: { label: "Password", type: "password" },
-                otp: { label: "OTP", type: "text" },
             },
             async authorize(credentials) {
-                // Scenario 1: OTP Login
-                if (credentials?.otp && credentials?.email) {
-                    const identifier = credentials.email.toLowerCase()
-                    const token = credentials.otp
-
-                    // Find valid OTP
-                    const otpRecord = await prisma.otp.findFirst({
-                        where: {
-                            identifier,
-                            token,
-                            type: "LOGIN", // Assuming 'LOGIN' type for login OTPs
-                        }
-                    })
-
-                    if (!otpRecord) {
-                        throw new Error("Invalid or expired OTP")
-                    }
-
-                    // Check expiry
-                    if (new Date() > otpRecord.expires) {
-                        await prisma.otp.delete({ where: { id: otpRecord.id } })
-                        throw new Error("OTP expired")
-                    }
-
-                    // Delete used OTP
-                    await prisma.otp.delete({ where: { id: otpRecord.id } })
-
-                    // Find user
-                    const user = await prisma.user.findUnique({
-                        where: { email: identifier },
-                        select: {
-                            id: true,
-                            email: true,
-                            role: true,
-                            status: true,
-                        },
-                    })
-
-                    if (!user) {
-                        throw new Error("User not found")
-                    }
-
-                    // Update last login
-                    await prisma.user.update({
-                        where: { id: user.id },
-                        data: { lastLogin: new Date() },
-                    })
-
-                    return {
-                        id: user.id,
-                        email: user.email,
-                        role: user.role,
-                        status: user.status,
-                    }
-                }
-
-                // Scenario 2: Password Login
                 if (!credentials?.email || !credentials?.password) {
                     throw new Error("Email and password are required")
                 }
