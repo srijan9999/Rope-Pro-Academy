@@ -24,7 +24,7 @@ export function SiteHeader() {
                     <Link href={logoHref} className="flex items-center gap-2">
                         {/* Official Logo */}
                         <Image
-                            src="/full-logo.jpg"
+                            src="/full-logo.png"
                             alt="Rope Pro Academy - India's Premier Rope Skipping Academy"
                             width={180}
                             height={60}
