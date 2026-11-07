@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { getServerSession } from "next-auth"
+import { requireRole } from "@/lib/guards"
 import { prisma } from "@/lib/prisma"
 import { decrypt, encrypt } from "@/lib/encryption"
 import bcrypt from "bcrypt"
@@ -10,16 +10,9 @@ import bcrypt from "bcrypt"
  */
 export async function GET() {
     try {
-        // Get the current session
-        const session = await getServerSession()
-
-        if (!session?.user?.email) {
-            return NextResponse.json(
-                { error: "Unauthorized - Please login" },
-                { status: 401 }
-            )
-        }
-
+        const guard = await requireRole("STUDENT")
+        if (guard.response) return guard.response
+        const { session } = guard
 
         // Find user and their student profile
         const user = await prisma.user.findUnique({
@@ -101,15 +94,9 @@ export async function GET() {
  */
 export async function PATCH(request: Request) {
     try {
-        // Get the current session
-        const session = await getServerSession()
-
-        if (!session?.user?.email) {
-            return NextResponse.json(
-                { error: "Unauthorized - Please login" },
-                { status: 401 }
-            )
-        }
+        const guard = await requireRole("STUDENT")
+        if (guard.response) return guard.response
+        const { session } = guard
 
         const body = await request.json()
 

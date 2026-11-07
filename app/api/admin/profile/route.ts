@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { getServerSession } from "next-auth"
+import { requireRole } from "@/lib/guards"
 import { prisma } from "@/lib/prisma"
 import bcrypt from "bcrypt"
 
@@ -9,15 +9,9 @@ import bcrypt from "bcrypt"
  */
 export async function GET() {
     try {
-        const session = await getServerSession()
-
-        if (!session?.user?.email) {
-            return NextResponse.json(
-                { error: "Unauthorized - Please login" },
-                { status: 401 }
-            )
-        }
-
+        const guard = await requireRole("ADMIN")
+        if (guard.response) return guard.response
+        const { session } = guard
 
         // Find user
         const user = await prisma.user.findUnique({
@@ -35,14 +29,6 @@ export async function GET() {
             return NextResponse.json(
                 { error: "User not found" },
                 { status: 404 }
-            )
-        }
-
-        // Verify admin role
-        if (user.role !== "ADMIN") {
-            return NextResponse.json(
-                { error: "Access denied - Admin only" },
-                { status: 403 }
             )
         }
 
@@ -83,14 +69,9 @@ export async function GET() {
  */
 export async function PATCH(request: Request) {
     try {
-        const session = await getServerSession()
-
-        if (!session?.user?.email) {
-            return NextResponse.json(
-                { error: "Unauthorized - Please login" },
-                { status: 401 }
-            )
-        }
+        const guard = await requireRole("ADMIN")
+        if (guard.response) return guard.response
+        const { session } = guard
 
         const body = await request.json()
 
@@ -103,14 +84,6 @@ export async function PATCH(request: Request) {
             return NextResponse.json(
                 { error: "User not found" },
                 { status: 404 }
-            )
-        }
-
-        // Verify admin role
-        if (user.role !== "ADMIN") {
-            return NextResponse.json(
-                { error: "Access denied - Admin only" },
-                { status: 403 }
             )
         }
 
