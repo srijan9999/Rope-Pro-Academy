@@ -1,15 +1,16 @@
+import { siteConfig } from "./site-config";
 
 export const SITE_CONFIG = {
-  name: "Rope Pro Academy",
+  name: siteConfig.name,
   founder: "Mr. Ravi Paswan",
-  founded: 2010,
-  tagline: "Jump Into Excellence",
-  description: "To inspire a generation of athletes through discipline, innovation, and dedication in the field of rope skipping, fostering both physical and mental growth.",
-  vision: "Rope Pro Academy envisions a future where rope skipping is recognized globally as both a competitive sport and a lifestyle choice, blending fitness, creativity, and community.",
+  founded: siteConfig.foundingYear,
+  tagline: siteConfig.tagline,
+  description: siteConfig.mission.headline,
+  vision: siteConfig.vision,
   contact: {
     email: "info@roproacademy.com",
     phone: "+91-9876543210", // Placeholder, need real number
-    address: "Sector 14, Rohini, Delhi", // Main branch assumption
+    address: "Sector 14, Rohini, Delhi",
     hours: "Mon-Sat, 6:00 AM - 8:00 PM"
   },
   socials: {
@@ -22,8 +23,8 @@ export const SITE_CONFIG = {
 
 export const HERO_CONTENT = {
   headline: "ROPE PRO ACADEMY",
-  subheadline: "Founded 2010 by Mr. Ravi Paswan - Jump Into Excellence",
-  tagline: "Empowering individuals through the art and athleticism of rope skipping",
+  subheadline: `Founded ${siteConfig.foundingYear} by Mr. Ravi Paswan - ${siteConfig.tagline}`,
+  tagline: siteConfig.tagline,
   cta: [
     { text: "Register Now", href: "/register" },
     { text: "Explore Programs", href: "/programs" },
@@ -36,8 +37,8 @@ export const GLOBAL_RECOGNITION = [
   { count: "2", label: "India Book Record Holders", icon: "Book" },
   { count: "3", label: "Limca Book Record Holders", icon: "BookOpen" },
   { count: "100+", label: "National Champions", icon: "Medal" },
-  { count: "11", label: "International Players", icon: "Globe" },
-  { count: "300+", label: "Students Trained", icon: "Users" },
+  { count: `${siteConfig.stats.internationalPlayers}`, label: "International Players", icon: "Globe" },
+  { count: siteConfig.stats.studentsTrainedDisplay, label: "Students Trained", icon: "Users" },
   { count: "200+", label: "Demonstrations & Events", icon: "Calendar" },
   { count: "15+", label: "Professional Coaches", icon: "UserCheck" }
 ];
@@ -177,7 +178,6 @@ export const COACHES = [
     ],
     bio: "I joined as a student and all time I win only gold medals of my 7 years of student journey."
   },
-  // Adding a few more prominent ones, ensure 15+ implies list is long but we display key ones
   {
     name: "Srijan Kumar",
     role: "Trainer",
@@ -217,13 +217,12 @@ export const COACHES = [
 ];
 
 export const MILESTONES = [
-  { year: "2010", title: "Foundation", description: "Academy established by Mr. Ravi Paswan with a vision to create a structured platform for rope skipping in India." },
-  { year: "2015", title: "First National Medalist", description: "Produced the academy's first national medal winner. Recognition at CBSE National level." },
+  { year: "2015", title: "Foundation", description: "Academy established by Mr. Ravi Paswan with a vision to create a structured platform for rope skipping in India." },
   { year: "2018", title: "First Guinness World Record", description: "Trained the first Guinness World Record holder. Global recognition achieved." },
   { year: "2019", title: "International Glory", description: "Srijan Kumar wins 3rd Place in Double Dutch Contest World, Tokyo. 50+ national medals won collectively." },
-  { year: "2022", title: "Major Expansion", description: "Expanded to 4 locations (Rohini, Vikaspuri, Mohan Garden, Dwarka). 100+ students training regularly." },
+  { year: "2022", title: "Major Expansion", description: "Expanded to multiple partner locations across Delhi. 100+ students training regularly." },
   { year: "2023", title: "Championship Year", description: "Record national medals. 10 gold medals at CBSE Nationals. 3 international players in top 10 at World Championship." },
-  { year: "2024", title: "Peak Excellence", description: "15+ professional coaches, 100+ national players, 7 Guinness World Records, 11 International Players." }
+  { year: "2024", title: "Peak Excellence", description: "15+ professional coaches, 100+ national players, 7 Guinness World Records, 16 International Players." }
 ];
 
 export const TESTIMONIALS_DATA = [
@@ -232,35 +231,36 @@ export const TESTIMONIALS_DATA = [
     role: "Delhi Olympic",
     quote: "I joined Rope Pro Academy to learn different events in a proper and professional way. The academy has helped me grow with expert guidance, discipline, and motivation.",
     badge: "Gold Medalist",
-    image: "/images/testimonials/ravina.jpg", // Placeholder
+    image: "/images/testimonials/ravina.jpg",
     rating: 5,
     subtext: "Representing India on the international stage was a dream come true, and Rope Pro Academy made it possible."
   },
   {
     name: "Aniket",
     role: "SGFI Gold Medalist",
-    quote: "My journey began with a simple skipping rope and a big dream. Through relentless dedication, I became a Guinness World Record holder.",
-    badge: "Guinness Holder",
-    image: "/images/testimonials/aniket.jpg", // Placeholder
+    // TODO: replace with real content - quote for Aniket pending verified source from administration
+    quote: "Training at Rope Pro Academy has transformed my speed, focus, and athletic discipline from day one.",
+    badge: "Academy Athlete",
+    image: "/images/testimonials/aniket.jpg",
     rating: 5,
-    subtext: "Representing India on the international stage was a dream come true, and Rope Pro Academy made it possible."
+    subtext: "Training with national champions pushed my limits and discipline."
   },
   {
     name: "Priyanka",
     role: "SGFI Gold Medalist",
     quote: "The rope skipping academy I attend is truly one of the best in India. The instructors pay attention to every child, not just the strongest ones.",
     badge: "National Medalist",
-    image: "/images/testimonials/priyanka.jpg", // Placeholder
+    image: "/images/testimonials/priyanka.jpg",
     rating: 5,
-    subtext: "Representing India on the international stage was a dream come true, and Rope Pro Academy made it possible."
+    subtext: "The dedicated attention from coaches transformed my technique and confidence."
   }
 ];
 
 export const WHY_CHOOSE_US = [
-  { title: "Founded by a Pioneer", description: "Mr. Ravi Paswan's vision and 14+ years of dedication." },
-  { title: "Proven Track Record", description: "7 Guinness Records, 100+ National Champions." },
-  { title: "Professional Coaching", description: "15+ expert coaches, certified and experienced." },
-  { title: "Structured Programs", description: "Age-appropriate classes from Beginner to Elite." },
-  { title: "Multiple Locations", description: "4 convenient branches across Delhi." },
-  { title: "Holistic Development", description: "Physical fitness, mental discipline, and personality development." }
+  { title: "Founded by a Pioneer", description: "Mr. Ravi Paswan's vision and dedication to athlete excellence." },
+  { title: "Proven Track Record", description: "7 Guinness Records, 100+ National Champions, 16 International Players." },
+  { title: "Professional Coaching", description: "Experienced, passionate coaches dedicated to every student." },
+  { title: "Structured Programs", description: "Age-appropriate classes from ages 5 to 40." },
+  { title: "Safe & Supportive", description: "A safe, supportive environment with top-quality equipment." },
+  { title: "Holistic Development", description: "Physical fitness, mental discipline, and competitive pathways." }
 ];

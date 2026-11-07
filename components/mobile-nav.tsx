@@ -36,6 +36,7 @@ export function MobileNav() {
         { href: "/about-us", label: "About Us" },
         { href: "/programs", label: "Programs" },
         { href: "/coaches", label: "Our Coaches" },
+        { href: "/achievements", label: "Hall of Fame" },
         { href: "/locations", label: "Locations" },
         { href: "/contact", label: "Contact" },
     ]

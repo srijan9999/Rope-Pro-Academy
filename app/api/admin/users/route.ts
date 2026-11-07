@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
-import { authOptions } from '@/lib/auth'
+import { authOptions, generateCoachId, generateStudentId } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { parseUserDirectoryQuery } from "@/lib/validations/admin"
+import { hashDefaultPassword } from "@/lib/default-password"
 import type { UserDirectoryResponse, PaginatedUser, UserProfile } from "@/types/api"
 import { Prisma } from "@prisma/client"
 
@@ -237,6 +238,146 @@ export async function GET(request: NextRequest) {
                 },
                 timestamp: new Date().toISOString()
             },
+            { status: 500 }
+        )
+    }
+}
+
+/**
+ * POST /api/admin/users
+ * Admin-only user creation (Coach or Student).
+ * Uses DEFAULT_TEMP_PASSWORD from environment variables (hashed), never exposed in logs/responses.
+ * Sets mustChangePassword to true.
+ */
+export async function POST(request: NextRequest) {
+    try {
+        // 1. Session and admin role verification
+        const session = await getServerSession(authOptions)
+        if (!session?.user) {
+            return NextResponse.json(
+                { success: false, error: { code: 'UNAUTHORIZED', message: 'Authentication required' } },
+                { status: 401 }
+            )
+        }
+
+        if (session.user.role !== 'ADMIN') {
+            return NextResponse.json(
+                { success: false, error: { code: 'FORBIDDEN', message: 'Admin access required' } },
+                { status: 403 }
+            )
+        }
+
+        const body = await request.json()
+        const { role, email, fullName, phone, photoUrl, specialization, experienceYears, bio, resumeUrl } = body
+
+        if (!email || !fullName || !role) {
+            return NextResponse.json(
+                { success: false, error: { code: 'VALIDATION_ERROR', message: 'Email, fullName, and role are required' } },
+                { status: 400 }
+            )
+        }
+
+        if (role !== 'COACH' && role !== 'STUDENT') {
+            return NextResponse.json(
+                { success: false, error: { code: 'INVALID_ROLE', message: 'Role must be COACH or STUDENT' } },
+                { status: 400 }
+            )
+        }
+
+        const existingUser = await prisma.user.findUnique({
+            where: { email: email.toLowerCase().trim() },
+            select: { id: true }
+        })
+
+        if (existingUser) {
+            return NextResponse.json(
+                { success: false, error: { code: 'EMAIL_EXISTS', message: 'An account with this email already exists' } },
+                { status: 409 }
+            )
+        }
+
+        // Hash default temporary password server-side only
+        const hashedPassword = await hashDefaultPassword()
+
+        const result = await prisma.$transaction(async (tx) => {
+            const user = await tx.user.create({
+                data: {
+                    email: email.toLowerCase().trim(),
+                    password: hashedPassword,
+                    role,
+                    status: 'ACTIVE',
+                    mustChangePassword: true,
+                }
+            })
+
+            if (role === 'COACH') {
+                const coachId = await generateCoachId()
+                const coach = await tx.coach.create({
+                    data: {
+                        coachId,
+                        userId: user.id,
+                        fullName: fullName.trim(),
+                        email: email.toLowerCase().trim(),
+                        phone: phone || null,
+                        photoUrl: photoUrl || null,
+                        primarySpecialization: specialization || 'SPEED',
+                        experienceYears: Number(experienceYears) || 0,
+                        bio: bio || null,
+                        resumeUrl: resumeUrl || '',
+                        applicationStatus: 'APPROVED',
+                        verificationLevel: 'LEVEL_1',
+                        coachStatus: 'ACTIVE',
+                        isActive: true,
+                        isApproved: true,
+                    }
+                })
+                return { user, coach }
+            } else {
+                const studentId = await generateStudentId()
+                const student = await tx.student.create({
+                    data: {
+                        studentId,
+                        userId: user.id,
+                        fullName: fullName.trim(),
+                        phone: phone || null,
+                        photoUrl: photoUrl || null,
+                        skillLevel: 'BEGINNER',
+                        registrationStatus: 'VERIFIED',
+                    }
+                })
+                return { user, student }
+            }
+        })
+
+        // Audit log
+        await prisma.auditLog.create({
+            data: {
+                userId: session.user.id,
+                action: 'CREATE',
+                entityType: role,
+                entityId: result.user.id,
+                newValue: JSON.stringify({
+                    email: result.user.email,
+                    role: result.user.role,
+                    createdBy: session.user.id,
+                })
+            }
+        })
+
+        return NextResponse.json({
+            success: true,
+            message: `${role} account created successfully with default temporary credentials`,
+            data: {
+                id: result.user.id,
+                email: result.user.email,
+                role: result.user.role,
+                status: result.user.status,
+            }
+        }, { status: 201 })
+    } catch (error: unknown) {
+        console.error("❌ ADMIN CREATE USER ERROR:", error)
+        return NextResponse.json(
+            { success: false, error: { code: 'INTERNAL_ERROR', message: 'Failed to create user account' } },
             { status: 500 }
         )
     }

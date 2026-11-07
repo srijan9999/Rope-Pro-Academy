@@ -52,9 +52,16 @@ export const coachStep4Schema = z.object({
 // Step 5: Availability
 export const coachStep5Schema = z.object({
     availableDays: z.array(z.string()).min(1, "Select at least one day"),
-    availableTimes: z.record(z.array(z.string())).optional(),
+    availableTimes: z.record(z.string(), z.array(z.string())).optional(),
     employmentType: z.string().min(1, "Employment type is required"),
     maxBatches: z.number().int().min(1).max(10).optional(),
+})
+
+// Step 6: Documents
+export const coachStep6Schema = z.object({
+    resumeUrl: z.string().min(1, "Resume upload is required"),
+    idProofUrl: z.string().optional(),
+    certificatesUrls: z.array(z.string()).optional(),
 })
 
 // Combined full registration schema (for API)
@@ -93,11 +100,14 @@ export const coachFullRegistrationSchema = z.object({
 
     // Step 5
     availableDays: z.array(z.string()).min(1),
-    availableTimes: z.record(z.array(z.string())).optional(),
+    availableTimes: z.record(z.string(), z.array(z.string())).optional(),
     employmentType: z.string().min(1),
     maxBatches: z.number().int().min(1).max(10).optional(),
 
-    // Step 6 - Documents (file names only for now)
+    // Step 6 - Documents (required resumeUrl)
+    resumeUrl: z.string().min(1, "Resume upload is required"),
+    idProofUrl: z.string().optional(),
+    certificatesUrls: z.array(z.string()).optional(),
     documents: z.object({
         resume: z.string().optional(),
         idProof: z.string().optional(),
@@ -111,4 +121,5 @@ export type CoachStep2Data = z.infer<typeof coachStep2Schema>
 export type CoachStep3Data = z.infer<typeof coachStep3Schema>
 export type CoachStep4Data = z.infer<typeof coachStep4Schema>
 export type CoachStep5Data = z.infer<typeof coachStep5Schema>
+export type CoachStep6Data = z.infer<typeof coachStep6Schema>
 export type CoachRegistrationData = z.infer<typeof coachFullRegistrationSchema>

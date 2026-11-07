@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Separator } from "@/components/ui/separator"
 import { SITE_CONFIG, LOCATIONS } from "@/lib/data"
+import { siteConfig } from "@/lib/site-config"
 
 export function SiteFooter() {
     const [formData, setFormData] = useState({
@@ -73,9 +74,9 @@ export function SiteFooter() {
                     <span className="hidden sm:inline">•</span>
                     <span>100+ National Champions</span>
                     <span className="hidden sm:inline">•</span>
-                    <span>300+ Students</span>
+                    <span>{siteConfig.stats.studentsTrainedDisplay} Students</span>
                     <span className="hidden sm:inline">•</span>
-                    <span>15+ Coaches</span>
+                    <span>{siteConfig.stats.internationalPlayersDisplay} International Players</span>
                 </div>
             </div>
 
@@ -109,6 +110,7 @@ export function SiteFooter() {
                         <Link href="/about-us" className="hover:text-primary">About Us</Link>
                         <Link href="/programs" className="hover:text-primary">Programs & Classes</Link>
                         <Link href="/coaches" className="hover:text-primary">Our Coaches</Link>
+                        <Link href="/achievements" className="hover:text-primary">Hall of Fame</Link>
                         <Link href="/locations" className="hover:text-primary">Locations</Link>
                         <Link href="/gallery" className="hover:text-primary">Gallery</Link>
                         <Link href="/events" className="hover:text-primary">Events</Link>
@@ -219,7 +221,7 @@ export function SiteFooter() {
 
             {/* Bottom Bar */}
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col items-center justify-between gap-4 py-6 md:flex-row md:gap-0 text-xs text-zinc-500">
-                <p>Copyright © {new Date().getFullYear()} {SITE_CONFIG.name}. All Rights Reserved. Founded by {SITE_CONFIG.founder} in 2010.</p>
+                <p>Copyright © {new Date().getFullYear()} {SITE_CONFIG.name}. All Rights Reserved. Founded by {SITE_CONFIG.founder} in {siteConfig.foundingYear}.</p>
                 <div className="flex gap-4">
                     <span>Safe Environment</span>
                     <span>Certified Coaches</span>

@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, Suspense } from "react"
+import Link from "next/link"
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -22,7 +23,7 @@ import {
     DialogHeader,
     DialogTitle,
 } from "@/components/ui/dialog"
-import { Search, Filter, Eye, RefreshCw, X, ChevronLeft, ChevronRight, AlertCircle, Lock } from "lucide-react"
+import { Search, Filter, Eye, RefreshCw, X, ChevronLeft, ChevronRight, AlertCircle, CreditCard } from "lucide-react"
 import { useUserFilters } from "@/hooks/useUserFilters"
 import { useUserDirectory } from "@/hooks/useUserDirectory"
 import { useDebounce } from "@/hooks/useDebounce"
@@ -78,8 +79,8 @@ function UserDetailsModal({ user, onClose }: { user: PaginatedUser | null; onClo
                 <div className="bg-gray-50 p-3 rounded-lg">
                     <p className="text-xs text-muted-foreground mb-1">Status</p>
                     <Badge className={
-                        user.status === "ACTIVE" ? "bg-green-600" :
-                            user.status === "PENDING" ? "bg-yellow-500" : "bg-gray-500"
+                        user.status === "ACTIVE" ? "bg-green-100 text-green-800 shadow-none border-green-200" :
+                            user.status === "PENDING" ? "bg-yellow-100 text-yellow-800 shadow-none border-yellow-200" : "bg-gray-100 text-gray-800 shadow-none border-gray-200"
                     }>
                         {user.status}
                     </Badge>
@@ -126,6 +127,25 @@ function UserDetailsModal({ user, onClose }: { user: PaginatedUser | null; onClo
                     )}
                 </div>
             </div>
+
+            {/* Action Links */}
+            {(user.role === 'STUDENT' || user.role === 'COACH') && (
+                <Button
+                    asChild
+                    className="w-full bg-[#E63946] hover:bg-red-700 text-white font-bold uppercase text-xs tracking-wider h-9"
+                >
+                    <Link
+                        href={user.role === 'STUDENT'
+                            ? `/dashboard/player/id-card?userId=${user.id}`
+                            : `/dashboard/coach/id-card?userId=${user.id}`
+                        }
+                        target="_blank"
+                    >
+                        <CreditCard className="w-4 h-4 mr-2" />
+                        Preview Digital ID Card
+                    </Link>
+                </Button>
+            )}
 
             {/* Close Button */}
             <Button onClick={onClose} className="w-full" variant="outline">
@@ -193,17 +213,38 @@ function UsersPageContent() {
                                 onChange={(e) => setSearchInput(e.target.value)}
                             />
                         </div>
-                        <Select value={filters.role || 'all'} onValueChange={handleRoleChange}>
-                            <SelectTrigger>
-                                <SelectValue placeholder="All Roles" />
-                            </SelectTrigger>
-                            <SelectContent>
-                                <SelectItem value="all">All Roles</SelectItem>
-                                <SelectItem value="STUDENT">Players</SelectItem>
-                                <SelectItem value="COACH">Coaches</SelectItem>
-                                <SelectItem value="ADMIN">Admins</SelectItem>
-                            </SelectContent>
-                        </Select>
+                        <div className="flex rounded-lg border bg-muted p-1 md:col-span-1">
+                            <button
+                                onClick={() => handleRoleChange("all")}
+                                className={`flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+                                    !filters.role
+                                        ? "bg-background text-foreground shadow-sm"
+                                        : "text-muted-foreground hover:text-foreground"
+                                }`}
+                            >
+                                All
+                            </button>
+                            <button
+                                onClick={() => handleRoleChange("STUDENT")}
+                                className={`flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+                                    filters.role === "STUDENT"
+                                        ? "bg-background text-foreground shadow-sm"
+                                        : "text-muted-foreground hover:text-foreground"
+                                }`}
+                            >
+                                Students
+                            </button>
+                            <button
+                                onClick={() => handleRoleChange("COACH")}
+                                className={`flex-1 rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+                                    filters.role === "COACH"
+                                        ? "bg-background text-foreground shadow-sm"
+                                        : "text-muted-foreground hover:text-foreground"
+                                }`}
+                            >
+                                Coaches
+                            </button>
+                        </div>
                         <Select value={filters.status || 'all'} onValueChange={handleStatusChange}>
                             <SelectTrigger>
                                 <SelectValue placeholder="All Status" />
@@ -228,7 +269,7 @@ function UsersPageContent() {
                         <div className="flex flex-wrap gap-2 mt-4">
                             {filters.query && (
                                 <Badge variant="secondary" className="gap-1">
-                                    Search: "{filters.query}"
+                                    Search: &quot;{filters.query}&quot;
                                     <X
                                         className="h-3 w-3 cursor-pointer"
                                         onClick={() => {
@@ -319,9 +360,9 @@ function UsersPageContent() {
                                         </TableCell>
                                         <TableCell className="text-center">
                                             <Badge className={
-                                                user.status === "ACTIVE" ? "bg-green-600 hover:bg-green-700" :
-                                                    user.status === "PENDING" ? "bg-yellow-500/10 text-yellow-600 shadow-none border-yellow-200" :
-                                                        "bg-gray-500"
+                                                user.status === "ACTIVE" ? "bg-green-100 text-green-800 hover:bg-green-200 shadow-none border-green-200" :
+                                                    user.status === "PENDING" ? "bg-yellow-100 text-yellow-800 hover:bg-yellow-200 shadow-none border-yellow-200" :
+                                                        "bg-gray-100 text-gray-800 hover:bg-gray-200 shadow-none border-gray-200"
                                             }>
                                                 {user.status}
                                             </Badge>

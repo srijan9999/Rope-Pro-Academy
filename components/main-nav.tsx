@@ -32,6 +32,11 @@ export function MainNav({
             active: pathname.startsWith("/coaches"),
         },
         {
+            href: "/achievements",
+            label: "Hall of Fame",
+            active: pathname.startsWith("/achievements") || pathname.startsWith("/records"),
+        },
+        {
             href: "/locations",
             label: "Locations",
             active: pathname.startsWith("/locations"),

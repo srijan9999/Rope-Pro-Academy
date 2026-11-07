@@ -7,7 +7,7 @@ import { MapPin, Phone, Clock } from "lucide-react"
 
 export function LocationsSection() {
     return (
-        <section className="py-20 md:py-24 bg-zinc-50 dark:bg-zinc-900/50">
+        <section className="py-20 md:py-24 bg-background">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
                 <div className="mb-12 text-center">
                     <h2 className="font-heading text-3xl font-bold uppercase text-primary md:text-4xl">Our Locations</h2>
@@ -16,7 +16,7 @@ export function LocationsSection() {
 
                 <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
                     {LOCATIONS.map((location) => (
-                        <div key={location.id} className="flex flex-col rounded-xl border bg-background p-6 shadow-sm transition-shadow hover:shadow-md">
+                        <div key={location.id} className="flex flex-col rounded-xl border bg-card p-6 shadow-sm transition-shadow hover:shadow-md">
                             <div className="mb-4 flex h-10 w-10 items-center justify-center rounded-full bg-primary/10 text-primary">
                                 <MapPin className="h-5 w-5" />
                             </div>

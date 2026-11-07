@@ -1,75 +1,170 @@
 "use client"
 
-import { TESTIMONIALS_DATA } from "@/lib/data"
-import { Card, CardContent } from "@/components/ui/card"
-import { Carousel, CarouselContent, CarouselItem, CarouselNext, CarouselPrevious } from "@/components/ui/carousel"
-import { Quote } from "lucide-react"
+import { useState, useEffect, useCallback } from "react"
+import { TESTIMONIALS, type TestimonialItem } from "@/content/testimonials"
+import { ChevronLeft, ChevronRight, Quote, Star } from "lucide-react"
+import { Button } from "@/components/ui/button"
 
 export function TestimonialsSection() {
+    const [currentIndex, setCurrentIndex] = useState(0)
+    const total = TESTIMONIALS.length
+
+    const handlePrev = useCallback(() => {
+        setCurrentIndex((prev) => (prev === 0 ? total - 1 : prev - 1))
+    }, [total])
+
+    const handleNext = useCallback(() => {
+        setCurrentIndex((prev) => (prev === total - 1 ? 0 : prev + 1))
+    }, [total])
+
+    // Keyboard navigation (Left / Right arrow keys)
+    useEffect(() => {
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.key === "ArrowLeft") {
+                handlePrev()
+            } else if (e.key === "ArrowRight") {
+                handleNext()
+            }
+        }
+        window.addEventListener("keydown", handleKeyDown)
+        return () => window.removeEventListener("keydown", handleKeyDown)
+    }, [handlePrev, handleNext])
+
+    const currentItem: TestimonialItem = TESTIMONIALS[currentIndex]
+
     return (
-        <section className="py-24 md:py-32 bg-white dark:bg-zinc-950">
-            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                <div className="mb-16 text-center">
-                    <h2 className="font-heading text-3xl font-bold text-zinc-900 dark:text-white md:text-5xl">
-                        Winning <span className="text-primary">Reviews</span>
+        <section
+            id="testimonials"
+            className="py-24 md:py-32 bg-zinc-950 text-white border-b border-zinc-800"
+            aria-labelledby="testimonials-heading"
+        >
+            <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+                {/* Header */}
+                <div className="text-center max-w-3xl mx-auto mb-16">
+                    <span className="inline-block text-xs font-bold uppercase tracking-widest text-[#E63946] mb-3">
+                        Proven Excellence
+                    </span>
+                    <h2
+                        id="testimonials-heading"
+                        className="font-heading text-3xl sm:text-4xl md:text-5xl font-extrabold uppercase tracking-tight"
+                    >
+                        Athlete & Parent <span className="text-[#E63946]">Testimonials</span>
                     </h2>
+                    <p className="mt-4 text-sm sm:text-base text-zinc-400">
+                        Real experiences and thoughts from athletes, national champions, and coaches training with Rope Pro Academy.
+                    </p>
                 </div>
 
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-8 pt-12 lg:gap-12 justify-items-center">
-                    {TESTIMONIALS_DATA.map((item, index) => (
-                        <div key={index} className="group relative mt-12 rounded-none border bg-white p-8 pt-16 shadow-lg transition-transform hover:-translate-y-1 dark:bg-zinc-900">
-                            {/* Top Image */}
-                            <div className="absolute -top-12 left-1/2 -translate-x-1/2 h-24 w-24 overflow-hidden rounded-full border-4 border-white dark:border-zinc-900 shadow-md bg-zinc-200">
-                                {/* Placeholder for actual image */}
-                                <div className="flex h-full w-full items-center justify-center bg-zinc-300 text-zinc-500 font-bold text-xl">
-                                    {item.name.charAt(0)}
-                                </div>
+                {/* Slider Container */}
+                <div
+                    className="relative max-w-4xl mx-auto rounded-2xl bg-zinc-900/90 border border-zinc-800 p-8 sm:p-12 lg:p-14 shadow-2xl"
+                    role="region"
+                    aria-roledescription="carousel"
+                    aria-label="Athlete testimonials slider"
+                >
+                    {/* Large Quote Accent */}
+                    <div className="absolute top-6 right-8 text-[#E63946]/20 pointer-events-none">
+                        <Quote className="w-16 h-16 sm:w-20 sm:h-20" />
+                    </div>
+
+                    <div className="flex flex-col sm:flex-row items-center sm:items-start gap-6 sm:gap-8">
+                        {/* Avatar / Initial Fallback */}
+                        <div className="relative flex-shrink-0">
+                            <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full border-2 border-[#E63946] bg-zinc-800 flex items-center justify-center text-xl sm:text-2xl font-extrabold text-[#E63946] shadow-md font-heading">
+                                {currentItem.avatarFallback}
+                            </div>
+                            <span className="absolute -bottom-2 -right-1 flex items-center justify-center w-7 h-7 rounded-full bg-[#E63946] text-white text-xs font-bold shadow">
+                                ★
+                            </span>
+                        </div>
+
+                        {/* Content */}
+                        <div className="flex-1 text-center sm:text-left">
+                            {/* Stars */}
+                            <div
+                                className="flex items-center justify-center sm:justify-start gap-1 text-[#E63946] mb-3"
+                                aria-label="5 out of 5 stars"
+                            >
+                                {[...Array(currentItem.rating)].map((_, i) => (
+                                    <Star key={i} className="w-4 h-4 fill-current" />
+                                ))}
                             </div>
 
-                            {/* Quote Icon */}
-                            <div className="absolute -top-4 -right-4 flex h-16 w-12 items-center justify-center bg-primary text-white text-2xl font-serif font-bold shadow-md">
-                                99
-                            </div>
+                            {/* Quote */}
+                            <blockquote className="text-base sm:text-lg lg:text-xl font-medium text-zinc-100 leading-relaxed italic mb-6">
+                                &ldquo;{currentItem.quote}&rdquo;
+                            </blockquote>
 
-                            <div className="text-center">
-                                <h3 className="text-xl font-bold text-primary">{item.name}</h3>
-                                <p className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">{item.role}</p>
-
-                                {/* Stars */}
-                                <div className="mt-2 flex justify-center gap-1 text-primary">
-                                    {[...Array(5)].map((_, i) => (
-                                        <Star key={i} className="h-4 w-4 fill-current" />
-                                    ))}
+                            {/* Athlete Info */}
+                            <div>
+                                <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3">
+                                    <h3 className="font-heading text-xl sm:text-2xl font-bold text-white">
+                                        {currentItem.name}
+                                    </h3>
+                                    {currentItem.badge && (
+                                        <span className="inline-block self-center sm:self-auto px-2.5 py-0.5 rounded-full text-xs font-semibold bg-[#E63946]/20 text-[#E63946] border border-[#E63946]/40">
+                                            {currentItem.badge}
+                                        </span>
+                                    )}
                                 </div>
-
-                                <p className="mt-6 text-sm leading-relaxed text-zinc-600 dark:text-zinc-300 font-medium">
-                                    {item.subtext || item.quote}
+                                <p className="text-xs sm:text-sm text-zinc-400 mt-1">
+                                    {currentItem.role}
                                 </p>
-
-                                {/* Bottom Accent Triangle */}
-                                <div className="absolute bottom-0 right-0 h-0 w-0 border-b-[40px] border-r-[40px] border-b-primary border-r-primary/50 opacity-80"></div>
                             </div>
                         </div>
-                    ))}
+                    </div>
+
+                    {/* Accessible Controls: Prev/Next & Dots */}
+                    <div className="mt-10 pt-6 border-t border-zinc-800 flex flex-col sm:flex-row items-center justify-between gap-4">
+                        {/* Dot indicators */}
+                        <div className="flex items-center gap-2" role="tablist" aria-label="Testimonial slides">
+                            {TESTIMONIALS.map((item, idx) => (
+                                <button
+                                    key={item.id}
+                                    type="button"
+                                    role="tab"
+                                    aria-selected={currentIndex === idx}
+                                    aria-label={`Go to slide ${idx + 1}: ${item.name}`}
+                                    onClick={() => setCurrentIndex(idx)}
+                                    suppressHydrationWarning
+                                    className={`h-2.5 rounded-full transition-all duration-200 min-w-[20px] ${
+                                        currentIndex === idx
+                                            ? "w-8 bg-[#E63946]"
+                                            : "w-2.5 bg-zinc-700 hover:bg-zinc-500"
+                                    }`}
+                                />
+                            ))}
+                        </div>
+
+                        {/* Navigation Buttons (min 44px touch targets) */}
+                        <div className="flex items-center gap-3">
+                            <Button
+                                type="button"
+                                variant="outline"
+                                size="icon"
+                                onClick={handlePrev}
+                                aria-label="Previous testimonial"
+                                className="h-11 w-11 rounded-full border-zinc-700 bg-zinc-800/80 hover:bg-[#E63946] hover:text-white hover:border-[#E63946] text-zinc-200 transition-colors"
+                            >
+                                <ChevronLeft className="w-5 h-5" />
+                            </Button>
+                            <span className="text-xs text-zinc-400 font-mono">
+                                {currentIndex + 1} / {total}
+                            </span>
+                            <Button
+                                type="button"
+                                variant="outline"
+                                size="icon"
+                                onClick={handleNext}
+                                aria-label="Next testimonial"
+                                className="h-11 w-11 rounded-full border-zinc-700 bg-zinc-800/80 hover:bg-[#E63946] hover:text-white hover:border-[#E63946] text-zinc-200 transition-colors"
+                            >
+                                <ChevronRight className="w-5 h-5" />
+                            </Button>
+                        </div>
+                    </div>
                 </div>
             </div>
-        </section >
-    )
-}
-
-function Star(props: React.SVGProps<SVGSVGElement>) {
-    return (
-        <svg
-            {...props}
-            xmlns="http://www.w3.org/2000/svg"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-        >
-            <polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2" />
-        </svg>
+        </section>
     )
 }

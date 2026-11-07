@@ -1,22 +1,38 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect, Suspense } from "react"
+import { useSearchParams } from "next/navigation"
 import { SITE_CONFIG } from "@/lib/data"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
-import { Mail, Phone, MapPin, Clock, CheckCircle, AlertCircle } from "lucide-react"
+import { Mail, Phone, MapPin, Clock, CheckCircle, AlertCircle, School } from "lucide-react"
 
-export default function ContactPage() {
+function ContactForm() {
+    const searchParams = useSearchParams()
+    const inquiryType = searchParams.get("type")
+    const isSchoolInquiry = inquiryType === "school"
+
     const [formData, setFormData] = useState({
         firstName: "",
         lastName: "",
         email: "",
         phone: "",
-        message: "",
+        message: isSchoolInquiry
+            ? "Inquiry regarding School Programme: We would like to introduce rope skipping coaching / demonstrations at our school."
+            : "",
     })
     const [isSubmitting, setIsSubmitting] = useState(false)
     const [feedback, setFeedback] = useState<{ type: "success" | "error"; text: string } | null>(null)
+
+    useEffect(() => {
+        if (isSchoolInquiry && !formData.message) {
+            setFormData((prev) => ({
+                ...prev,
+                message: "Inquiry regarding School Programme: We would like to introduce rope skipping coaching / demonstrations at our school.",
+            }))
+        }
+    }, [isSchoolInquiry, formData.message])
 
     const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
         const { name, value } = e.target
@@ -69,6 +85,109 @@ export default function ContactPage() {
         }
     }
 
+    return (
+        <div className="rounded-2xl border bg-card p-8 shadow-sm">
+            {isSchoolInquiry && (
+                <div className="mb-6 flex items-start gap-3 rounded-xl border border-[#E63946]/30 bg-[#E63946]/10 p-4 text-xs text-zinc-200">
+                    <School className="w-5 h-5 text-[#E63946] shrink-0 mt-0.5" />
+                    <div>
+                        <span className="font-bold uppercase tracking-wider text-[#E63946]">School Programme Inquiry</span>
+                        <p className="mt-0.5 text-zinc-300">
+                            Tell us about your institution, campus location, and preferred format (in-school coaching, workshop, or competition training).
+                        </p>
+                    </div>
+                </div>
+            )}
+
+            <form className="space-y-6" onSubmit={handleSubmit}>
+                <div className="grid gap-4 md:grid-cols-2">
+                    <div className="space-y-2">
+                        <label className="text-sm font-medium">First Name *</label>
+                        <Input
+                            name="firstName"
+                            placeholder="John"
+                            value={formData.firstName}
+                            onChange={handleInputChange}
+                            disabled={isSubmitting}
+                        />
+                    </div>
+                    <div className="space-y-2">
+                        <label className="text-sm font-medium">Last Name</label>
+                        <Input
+                            name="lastName"
+                            placeholder="Doe"
+                            value={formData.lastName}
+                            onChange={handleInputChange}
+                            disabled={isSubmitting}
+                        />
+                    </div>
+                </div>
+
+                <div className="space-y-2">
+                    <label className="text-sm font-medium">Email *</label>
+                    <Input
+                        name="email"
+                        type="email"
+                        placeholder="john@example.com"
+                        value={formData.email}
+                        onChange={handleInputChange}
+                        disabled={isSubmitting}
+                    />
+                </div>
+
+                <div className="space-y-2">
+                    <label className="text-sm font-medium">Phone</label>
+                    <Input
+                        name="phone"
+                        type="tel"
+                        placeholder="+91 98765 43210"
+                        value={formData.phone}
+                        onChange={handleInputChange}
+                        disabled={isSubmitting}
+                    />
+                </div>
+
+                <div className="space-y-2">
+                    <label className="text-sm font-medium">Message *</label>
+                    <Textarea
+                        name="message"
+                        placeholder={isSchoolInquiry ? "Tell us about your school and requirements..." : "How can we help you?"}
+                        className="min-h-[120px]"
+                        value={formData.message}
+                        onChange={handleInputChange}
+                        disabled={isSubmitting}
+                    />
+                </div>
+
+                {/* Feedback Message */}
+                {feedback && (
+                    <div className={`flex items-center gap-2 text-sm p-3 rounded-lg ${feedback.type === "success"
+                            ? "bg-green-50 text-green-700 dark:bg-green-950/30 dark:text-green-400"
+                            : "bg-red-50 text-red-700 dark:bg-red-950/30 dark:text-red-400"
+                        }`}>
+                        {feedback.type === "success" ? (
+                            <CheckCircle className="h-5 w-5 shrink-0" />
+                        ) : (
+                            <AlertCircle className="h-5 w-5 shrink-0" />
+                        )}
+                        <span>{feedback.text}</span>
+                    </div>
+                )}
+
+                <Button
+                    type="submit"
+                    size="lg"
+                    className="w-full bg-primary hover:bg-red-700"
+                    disabled={isSubmitting}
+                >
+                    {isSubmitting ? "Sending..." : "Send Message"}
+                </Button>
+            </form>
+        </div>
+    )
+}
+
+export default function ContactPage() {
     return (
         <div className="min-h-screen pb-20">
             <div className="bg-zinc-950 py-20 text-center text-white">
@@ -132,96 +251,16 @@ export default function ContactPage() {
                         </div>
                     </div>
 
-                    {/* Contact Form */}
-                    <div className="rounded-2xl border bg-card p-8 shadow-sm">
-                        <form className="space-y-6" onSubmit={handleSubmit}>
-                            <div className="grid gap-4 md:grid-cols-2">
-                                <div className="space-y-2">
-                                    <label className="text-sm font-medium">First Name *</label>
-                                    <Input
-                                        name="firstName"
-                                        placeholder="John"
-                                        value={formData.firstName}
-                                        onChange={handleInputChange}
-                                        disabled={isSubmitting}
-                                    />
-                                </div>
-                                <div className="space-y-2">
-                                    <label className="text-sm font-medium">Last Name</label>
-                                    <Input
-                                        name="lastName"
-                                        placeholder="Doe"
-                                        value={formData.lastName}
-                                        onChange={handleInputChange}
-                                        disabled={isSubmitting}
-                                    />
-                                </div>
-                            </div>
-
-                            <div className="space-y-2">
-                                <label className="text-sm font-medium">Email *</label>
-                                <Input
-                                    name="email"
-                                    type="email"
-                                    placeholder="john@example.com"
-                                    value={formData.email}
-                                    onChange={handleInputChange}
-                                    disabled={isSubmitting}
-                                />
-                            </div>
-
-                            <div className="space-y-2">
-                                <label className="text-sm font-medium">Phone</label>
-                                <Input
-                                    name="phone"
-                                    type="tel"
-                                    placeholder="+91 98765 43210"
-                                    value={formData.phone}
-                                    onChange={handleInputChange}
-                                    disabled={isSubmitting}
-                                />
-                            </div>
-
-                            <div className="space-y-2">
-                                <label className="text-sm font-medium">Message *</label>
-                                <Textarea
-                                    name="message"
-                                    placeholder="How can we help you?"
-                                    className="min-h-[120px]"
-                                    value={formData.message}
-                                    onChange={handleInputChange}
-                                    disabled={isSubmitting}
-                                />
-                            </div>
-
-                            {/* Feedback Message */}
-                            {feedback && (
-                                <div className={`flex items-center gap-2 text-sm p-3 rounded-lg ${feedback.type === "success"
-                                        ? "bg-green-50 text-green-700 dark:bg-green-950/30 dark:text-green-400"
-                                        : "bg-red-50 text-red-700 dark:bg-red-950/30 dark:text-red-400"
-                                    }`}>
-                                    {feedback.type === "success" ? (
-                                        <CheckCircle className="h-5 w-5 shrink-0" />
-                                    ) : (
-                                        <AlertCircle className="h-5 w-5 shrink-0" />
-                                    )}
-                                    <span>{feedback.text}</span>
-                                </div>
-                            )}
-
-                            <Button
-                                type="submit"
-                                size="lg"
-                                className="w-full bg-primary hover:bg-red-700"
-                                disabled={isSubmitting}
-                            >
-                                {isSubmitting ? "Sending..." : "Send Message"}
-                            </Button>
-                        </form>
-                    </div>
+                    {/* Contact Form with Suspense Boundary for useSearchParams */}
+                    <Suspense fallback={
+                        <div className="rounded-2xl border bg-card p-8 shadow-sm flex items-center justify-center min-h-[300px]">
+                            <p className="text-sm text-muted-foreground">Loading contact form...</p>
+                        </div>
+                    }>
+                        <ContactForm />
+                    </Suspense>
                 </div>
             </div>
         </div>
     )
 }
-

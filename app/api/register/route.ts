@@ -1,192 +1,146 @@
 import { NextRequest, NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
-import { hashPassword, generateStudentId, generateCoachId } from "@/lib/auth"
-import { registrationSchema, formatZodErrors } from "@/lib/validations"
-import type { Prisma } from "@prisma/client"
+import bcrypt from "bcrypt"
+import { studentRegistrationSchema } from "@/lib/validations/registration"
+import { getFee } from "@/lib/pricing"
 
-/**
- * POST /api/register
- * Register a new student or coach
- * 
- * Rate limiting should be implemented in production (e.g., using upstash/ratelimit)
- */
+export const dynamic = "force-dynamic"
+
 export async function POST(request: NextRequest) {
     try {
-        const body = await request.json()
+        const body = await request.json().catch(() => null)
+        if (!body) {
+            return NextResponse.json({ message: "Invalid JSON body" }, { status: 400 })
+        }
 
-        // Validate input using Zod
-        const validationResult = registrationSchema.safeParse(body)
-
-        if (!validationResult.success) {
+        // 1. Validate input strictly with Zod
+        const validation = studentRegistrationSchema.safeParse(body)
+        if (!validation.success) {
             return NextResponse.json(
-                {
-                    error: "Validation failed",
-                    details: formatZodErrors(validationResult.error),
-                },
+                { message: validation.error.issues[0].message },
                 { status: 400 }
             )
         }
 
-        const data = validationResult.data
+        const data = validation.data
 
-        // Check if email already exists
+        // 2. Compute fee amount STRICTLY on the server (ignore any client fee)
+        const feeAmount = getFee(data.school, data.plan)
+        if (feeAmount == null || feeAmount <= 0) {
+            return NextResponse.json(
+                { message: "Invalid academy centre or plan selected" },
+                { status: 400 }
+            )
+        }
+
+        const emailLower = data.email.toLowerCase().trim()
+        const hashedPassword = await bcrypt.hash(data.password, 10)
+
+        // Common student profile fields
+        const studentFields = {
+            fullName: data.fullName.trim(),
+            dateOfBirth: data.dob ? new Date(data.dob) : null,
+            gender: data.gender.toUpperCase(),
+            phone: data.phone.trim(),
+            schoolName: data.schoolName.trim(), // Regular school
+            grade: data.grade?.trim() || null,
+            parentName: data.parentName.trim(),
+            parentRelation: data.parentRelation.trim(),
+            parentPhone: data.parentPhone.trim(),
+            parentEmail: data.parentEmail?.trim() || null,
+            bloodGroup: data.bloodGroup.trim(),
+            medicalConditions: data.medicalConditions?.trim() || null,
+            emergencyContact: data.emergencyContact.trim(),
+            emergencyPhone: data.emergencyPhone.trim(),
+            skillLevel: data.experienceLevel,
+
+            // Location-based pricing & status
+            school: data.school,
+            selectedPlan: data.plan,
+            feeAmount,
+            status: "PENDING_PAYMENT" as const,
+            registrationStatus: "UNPAID",
+            paymentRejectionNote: null,
+            utrNumber: null,
+        }
+
+        // 3. Check for existing record
         const existingUser = await prisma.user.findUnique({
-            where: { email: data.email.toLowerCase() },
-            select: { id: true },
+            where: { email: emailLower },
+            include: { student: true },
         })
 
         if (existingUser) {
-            return NextResponse.json(
-                { error: "Email already registered" },
-                { status: 409 }
-            )
-        }
-
-        // Hash password
-        const hashedPassword = await hashPassword(data.password)
-
-        // Create user and profile in a transaction
-        const result = await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
-            // Create base user
-            const user = await tx.user.create({
-                data: {
-                    email: data.email.toLowerCase(),
-                    password: hashedPassword,
-                    role: data.role, // String: "STUDENT" or "COACH"
-                    status: "PENDING", // Requires admin approval
-                },
-            })
-
-            if (data.role === "STUDENT") {
-                // Generate unique student ID
-                const studentId = await generateStudentId()
-
-                // Create student profile
-                const student = await tx.student.create({
-                    data: {
-                        studentId,
-                        userId: user.id,
-                        fullName: data.fullName,
-                        dateOfBirth: data.dateOfBirth
-                            ? new Date(data.dateOfBirth)
-                            : undefined,
-                        gender: data.gender, // String: "MALE", "FEMALE", "OTHER"
-                        phone: data.phone,
-                        parentName: data.parentName,
-                        parentPhone: data.parentPhone,
-                        parentEmail: data.parentEmail || undefined,
-                        schoolName: data.schoolName,
-                        grade: data.grade,
-                        academyId: data.academyId,
-                        skillLevel: data.skillLevel || "BEGINNER",
-                        bloodGroup: data.bloodGroup,
-                        medicalConditions: data.medicalConditions,
+            // Check if already active or awaiting verification
+            if (
+                existingUser.status === "ACTIVE" ||
+                existingUser.student?.status === "ACTIVE" ||
+                existingUser.student?.status === "PENDING_VERIFICATION"
+            ) {
+                return NextResponse.json(
+                    {
+                        message:
+                            "An account with this email is already active or awaiting payment verification.",
                     },
-                })
-
-                return {
-                    user: {
-                        id: user.id,
-                        email: user.email,
-                        role: user.role,
-                        status: user.status,
-                    },
-                    profile: {
-                        id: student.id,
-                        studentId: student.studentId,
-                        fullName: student.fullName,
-                    },
-                }
-            } else if (data.role === "COACH") {
-                // Generate unique coach ID
-                const coachId = await generateCoachId()
-
-                // Create coach profile
-                const coach = await tx.coach.create({
-                    data: {
-                        coachId,
-                        userId: user.id,
-                        fullName: data.fullName,
-                        dateOfBirth: data.dateOfBirth
-                            ? new Date(data.dateOfBirth)
-                            : undefined,
-                        gender: data.gender, // String: "MALE", "FEMALE", "OTHER"
-                        phone: data.phone,
-                        email: data.email.toLowerCase(),
-                        address: data.address,
-                        experienceYears: data.experienceYears || 0,
-                        coachingYears: data.coachingYears || 0,
-                        primarySpecialization: data.specialization || "SPEED",
-                        qualifications: data.qualifications,
-                        ropeSkippingJourney: data.ropeSkippingJourney,
-                        coachingPhilosophy: data.coachingPhilosophy,
-                    },
-                })
-
-                return {
-                    user: {
-                        id: user.id,
-                        email: user.email,
-                        role: user.role,
-                        status: user.status,
-                    },
-                    profile: {
-                        id: coach.id,
-                        coachId: coach.coachId,
-                        fullName: coach.fullName,
-                    },
-                }
+                    { status: 409 }
+                )
             }
 
-            throw new Error("Invalid role")
-        })
+            // If existing is PENDING_PAYMENT or PAYMENT_REJECTED, update it (including recomputing feeAmount)
+            if (existingUser.student) {
+                const updated = await prisma.$transaction(async (tx) => {
+                    await tx.user.update({
+                        where: { id: existingUser.id },
+                        data: {
+                            password: hashedPassword,
+                            status: "PENDING_PAYMENT",
+                        },
+                    })
 
-        // Log registration (audit trail)
-        await prisma.auditLog.create({
-            data: {
-                userId: result.user.id,
-                action: "CREATE",
-                entityType: data.role === "STUDENT" ? "STUDENT" : "COACH",
-                entityId: result.profile.id,
-                newValue: JSON.stringify({
-                    email: result.user.email,
-                    role: result.user.role,
-                    profileId:
-                        data.role === "STUDENT"
-                            ? (result.profile as { studentId: string }).studentId
-                            : (result.profile as { coachId: string }).coachId,
-                }),
-            },
-        })
+                    const updatedStudent = await tx.student.update({
+                        where: { id: existingUser.student!.id },
+                        data: studentFields,
+                        select: { id: true },
+                    })
 
-        // TODO: Send verification email
-        // TODO: Notify admin of new registration
+                    return updatedStudent
+                })
 
-        return NextResponse.json(
-            {
-                message: "Registration successful",
-                user: result.user,
-                profile: result.profile,
-            },
-            { status: 201 }
-        )
-    } catch (error) {
-        console.error("Registration error:", error)
-
-        // Handle Prisma unique constraint errors
-        if (
-            error instanceof Error &&
-            error.message.includes("Unique constraint")
-        ) {
-            return NextResponse.json(
-                { error: "Email already registered" },
-                { status: 409 }
-            )
+                return NextResponse.json({ success: true, userId: updated.id }, { status: 200 })
+            }
         }
 
-        return NextResponse.json(
-            { error: "An error occurred during registration" },
-            { status: 500 }
-        )
+        // 4. New Registration: Create User + Student in transaction
+        const year = new Date().getFullYear()
+        const randomNum = Math.floor(1000 + Math.random() * 9000)
+        const studentId = `RPA-${year}-${randomNum}`
+
+        const created = await prisma.$transaction(async (tx) => {
+            const user = await tx.user.create({
+                data: {
+                    email: emailLower,
+                    password: hashedPassword,
+                    role: "STUDENT",
+                    status: "PENDING_PAYMENT",
+                },
+                select: { id: true },
+            })
+
+            const student = await tx.student.create({
+                data: {
+                    ...studentFields,
+                    studentId,
+                    userId: user.id,
+                },
+                select: { id: true },
+            })
+
+            return student
+        })
+
+        return NextResponse.json({ success: true, userId: created.id }, { status: 201 })
+    } catch (err) {
+        console.error("Registration error:", err)
+        return NextResponse.json({ message: "Could not complete registration" }, { status: 500 })
     }
 }

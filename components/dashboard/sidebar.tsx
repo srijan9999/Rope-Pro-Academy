@@ -4,7 +4,7 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { signOut } from "next-auth/react"
 import { cn } from "@/lib/utils"
-import { LayoutDashboard, Users, Calendar, Trophy, Settings, LogOut, FileText, IndianRupee, Building2, ClipboardCheck, CreditCard } from "lucide-react"
+import { LayoutDashboard, Users, Calendar, Trophy, Settings, LogOut, IndianRupee, Building2, ClipboardCheck, CreditCard, Image as ImageIcon } from "lucide-react"
 import { Button } from "@/components/ui/button"
 
 type DashboardRole = "player" | "coach" | "admin"
@@ -25,12 +25,16 @@ const sidebarItems = {
         { href: "/dashboard/coach", icon: LayoutDashboard, label: "Overview" },
         { href: "/dashboard/coach/schedule", icon: Calendar, label: "My Schedule" },
         { href: "/dashboard/coach/students", icon: Users, label: "My Students" },
+        { href: "/dashboard/coach/id-card", icon: CreditCard, label: "ID Card" },
         { href: "/dashboard/coach/profile", icon: Settings, label: "My Profile" },
     ],
     admin: [
         { href: "/dashboard/admin", icon: LayoutDashboard, label: "Overview" },
+        { href: "/dashboard/admin/registrations", icon: ClipboardCheck, label: "Registrations" },
         { href: "/dashboard/admin/academies", icon: Building2, label: "Academies" },
         { href: "/dashboard/admin/users", icon: Users, label: "Users" },
+        { href: "/dashboard/admin/media", icon: ImageIcon, label: "Media Gallery" },
+        { href: "/dashboard/admin/pending-payments", icon: ClipboardCheck, label: "Pending Payments" },
         { href: "/dashboard/admin/requests", icon: ClipboardCheck, label: "Requests" },
         { href: "/dashboard/admin/finance", icon: IndianRupee, label: "Finance" },
     ],

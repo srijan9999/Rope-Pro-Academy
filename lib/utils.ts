@@ -1,5 +1,6 @@
 import { clsx, type ClassValue } from "clsx"
 import { twMerge } from "tailwind-merge"
+import { DASHBOARD_PATHS, isRole } from "./roles"
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))
@@ -11,14 +12,8 @@ export function cn(...inputs: ClassValue[]) {
  * @returns Dashboard path
  */
 export function getDashboardLink(role: string | undefined): string {
-  switch (role) {
-    case "ADMIN":
-      return "/dashboard/admin"
-    case "COACH":
-      return "/dashboard/coach"
-    case "STUDENT":
-      return "/dashboard/player"
-    default:
-      return "/"
+  if (role && isRole(role)) {
+    return DASHBOARD_PATHS[role]
   }
+  return "/"
 }

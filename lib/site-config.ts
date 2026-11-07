@@ -1,0 +1,61 @@
+/**
+ * Centralized site configuration and figures for Rope Pro Academy.
+ * All core statistics and institutional copy live here for single-edit consistency.
+ */
+
+export const siteConfig = {
+    name: "Rope Pro Academy",
+    tagline: "Train like a Pro, Perform like a Champion",
+    themeColor: "#E63946",
+    foundingYear: 2015,
+    stats: {
+        studentsTrained: 1000,
+        studentsTrainedDisplay: "1000+",
+        internationalPlayers: 16,
+        internationalPlayersDisplay: "16",
+        foundingYear: 2015,
+        foundingYearDisplay: "Founding Year: 2015",
+    },
+    mission: {
+        headline:
+            "To inspire a generation of athletes through discipline, innovation, and dedication in the field of rope skipping, fostering both physical and mental growth.",
+        supporting:
+            "Our mission goes beyond mere sporting achievements. We are committed to nurturing well-rounded individuals who excel not only in sports but in all facets of life: physically fit, mentally sharp, and socially responsible.",
+    },
+    vision:
+        "Rope Pro Academy envisions a future where rope skipping is recognized globally as both a competitive sport and a lifestyle choice, blending fitness, creativity, and community.",
+    whyChoosePoints: [
+        {
+            title: "Safe & Supportive Environment",
+            description: "A safe, supportive environment for every student to learn and thrive.",
+        },
+        {
+            title: "Top-Quality Equipment",
+            description: "Top-quality training equipment designed for professional rope skipping.",
+        },
+        {
+            title: "Strong Teamwork Community",
+            description: "A strong community that encourages teamwork, camaraderie, and mutual respect.",
+        },
+        {
+            title: "Age-Appropriate Programs",
+            description: "Age-appropriate programs customized for athletes from ages 5 to 40.",
+        },
+        {
+            title: "Experienced Passionate Instructors",
+            description: "Experienced, passionate instructors dedicated to student advancement.",
+        },
+        {
+            title: "Pathway to Competition",
+            description: "A path from beginner fundamentals to national and international competition.",
+        },
+    ],
+    contact: {
+        email: "info@roproacademy.com",
+        phone: "+91-9876543210",
+        address: "Rohini, Delhi",
+        hours: "Mon-Sat, 6:00 AM - 8:00 PM",
+    },
+} as const
+
+export type SiteConfig = typeof siteConfig

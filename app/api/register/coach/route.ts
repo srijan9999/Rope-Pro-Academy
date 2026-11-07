@@ -40,6 +40,20 @@ export async function POST(request: Request) {
 
         const data = validationResult.data
 
+        // 2.1 Explicit check for resumeUrl
+        if (!data.resumeUrl || typeof data.resumeUrl !== "string" || data.resumeUrl.trim() === "") {
+            return NextResponse.json(
+                {
+                    success: false,
+                    error: {
+                        code: "RESUME_REQUIRED",
+                        message: "A valid resume URL is required to register as a coach.",
+                    },
+                },
+                { status: 400 }
+            )
+        }
+
         // 3. Check if email already exists
         const existingUser = await prisma.user.findUnique({
             where: { email: data.email.toLowerCase() },
@@ -80,6 +94,7 @@ export async function POST(request: Request) {
                     password: hashedPassword,
                     role: "COACH",
                     status: "PENDING",
+                    mustChangePassword: false,
                 },
             })
             console.log("   ✓ User created with ID:", user.id)
@@ -121,6 +136,10 @@ export async function POST(request: Request) {
                     employmentType: data.employmentType,
                     maxBatches: data.maxBatches || 3,
 
+                    // Documents
+                    resumeUrl: data.resumeUrl.trim(),
+                    idProofUrl: data.idProofUrl || undefined,
+
                     // Application status
                     applicationStatus: "SUBMITTED",
                     verificationLevel: "LEVEL_1",
@@ -146,6 +165,7 @@ export async function POST(request: Request) {
                     email: result.user.email,
                     specialization: data.specializations,
                     experience: data.experienceYears,
+                    resumeUrl: result.coach.resumeUrl,
                 }),
             },
         })

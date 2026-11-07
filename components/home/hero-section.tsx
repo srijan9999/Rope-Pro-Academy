@@ -4,15 +4,14 @@ import Link from 'next/link'
 import { Button } from '@/components/ui/button'
 import { ArrowRight, Play, Trophy } from 'lucide-react'
 import { motion } from 'framer-motion'
-import { HERO_CONTENT, GLOBAL_RECOGNITION } from '@/lib/data'
+import { siteConfig } from '@/lib/site-config'
 
 export function HeroSection() {
-    // Pick 4 key stats from GLOBAL_RECOGNITION
     const stats = [
-        { value: '300+', label: 'Students Trained' },
-        { value: '15+', label: 'Expert Coaches' },
-        { value: '4', label: 'Locations' },
+        { value: siteConfig.stats.studentsTrainedDisplay, label: 'Students Trained' },
+        { value: `${siteConfig.stats.internationalPlayers}`, label: 'International Players' },
         { value: '7', label: 'World Records' },
+        { value: '15+', label: 'Expert Coaches' },
     ]
 
     return (
@@ -30,7 +29,7 @@ export function HeroSection() {
                     allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                 ></iframe>
 
-                {/* Dark Overlay so your white text stays readable */}
+                {/* Dark Overlay so text stays readable */}
                 <div className="absolute inset-0 bg-black/60 z-10"></div>
             </div>
 
@@ -62,11 +61,11 @@ export function HeroSection() {
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
                         transition={{ duration: 0.8, delay: 0.6 }}
-                        className="mb-6 text-4xl font-extrabold tracking-tight text-white leading-tight sm:text-5xl md:text-6xl lg:text-7xl"
+                        className="mb-6 text-4xl font-extrabold tracking-tight text-white leading-tight sm:text-5xl md:text-6xl lg:text-7xl font-heading"
                     >
-                        Master the Art of{' '}
+                        Train like a Pro,{' '}
                         <span className="bg-gradient-to-r from-red-500 via-orange-500 to-yellow-500 bg-clip-text text-transparent">
-                            Rope Skipping
+                            Perform like a Champion
                         </span>
                     </motion.h1>
 
@@ -77,8 +76,8 @@ export function HeroSection() {
                         transition={{ duration: 0.8, delay: 0.8 }}
                         className="mb-10 text-base font-medium text-gray-200 sm:text-lg md:text-xl lg:text-2xl max-w-3xl mx-auto"
                     >
-                        {HERO_CONTENT.tagline}. Train with world champions,
-                        master advanced techniques, and transform your fitness journey.
+                        Empowering athletes through discipline, technical mastery, and championship training.
+                        Join India&apos;s premier rope skipping academy today.
                     </motion.p>
 
                     {/* CTA Buttons */}
@@ -140,7 +139,7 @@ export function HeroSection() {
                                 key={stat.label}
                                 className="rounded-lg bg-white/10 backdrop-blur-sm border border-white/20 p-4"
                             >
-                                <div className="text-2xl font-bold text-white mb-1 sm:text-3xl">
+                                <div className="text-2xl font-bold text-white mb-1 sm:text-3xl font-heading">
                                     {stat.value}
                                 </div>
                                 <div className="text-xs text-gray-300 sm:text-sm">{stat.label}</div>

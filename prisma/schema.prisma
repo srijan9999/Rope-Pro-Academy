@@ -7,8 +7,9 @@ generator client {
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("LIVE_DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("LIVE_DATABASE_URL")
+  directUrl = env("DATABASE_URL_UNPOOLED")
 }
 
 // ============================================
@@ -21,6 +22,7 @@ model User {
   password      String
   role          String    @default("STUDENT") // ADMIN, COACH, STUDENT
   status        String    @default("PENDING") // ACTIVE, INACTIVE, PENDING
+  mustChangePassword Boolean @default(false)
   emailVerified DateTime?
   lastLogin     DateTime?
   createdAt     DateTime  @default(now())
@@ -75,6 +77,13 @@ model Session {
 // ============================================
 // PROFILE MODELS
 // ============================================
+
+enum RegistrationStatus {
+  PENDING_PAYMENT        // registered, QR not yet paid/UTR not submitted
+  PENDING_VERIFICATION   // UTR submitted, waiting for admin
+  ACTIVE                 // admin approved
+  PAYMENT_REJECTED       // admin rejected the UTR; student may resubmit
+}
 
 model Student {
   id        String @id @default(cuid())
@@ -157,6 +166,27 @@ model Student {
   totalPending          Float             @default(0)
   scholarshipPercentage Int               @default(0)
   siblingDiscount       Boolean           @default(false)
+
+  // Registration Payment & Location Pricing
+  registrationFee       Float             @default(2000)
+  registrationStatus    String            @default("UNPAID") // UNPAID, SCREENSHOT_UPLOADED, VERIFIED, REJECTED
+  paymentMethod         String?           // UPI_QR, OFFLINE
+  paymentScreenshotUrl  String?           // Base64 data URI of payment screenshot
+  paymentScreenshotAt   DateTime?         // When screenshot was uploaded
+  paymentVerifiedAt     DateTime?         // When admin verified payment
+  paymentVerifiedBy     String?           // Admin user ID who verified
+  paymentNote           String?           // Admin note (e.g. rejection reason)
+  utrNumber             String?           @unique // 12 digits; unique so one UTR can't back two students
+
+  // Location-based Pricing & Verification Fields
+  school                String?           // pricing-config key, e.g. "bbps-rohini"
+  selectedPlan          String?           // "monthly" | "quarterly" | "half-yearly"
+  feeAmount             Int?              // rupees; server-computed snapshot, never client-supplied
+  paymentSubmittedAt    DateTime?
+  paymentReviewedAt     DateTime?
+  paymentReviewedBy     String?
+  paymentRejectionNote  String?
+  status                RegistrationStatus @default(PENDING_PAYMENT)
 
   // Progress Relations
   progressReports   ProgressReport[]
@@ -275,7 +305,7 @@ model Coach {
   facebookProfile String?
 
   // Documents (Uploaded File URLs)
-  resumeUrl         String?
+  resumeUrl         String   @default("") // required: URL of the uploaded resume/CV
   idProofUrl        String?
   addressProofUrl   String?
   certificatesUrls  String? // JSON array of URLs
@@ -836,6 +866,19 @@ model Achievement {
   updatedAt DateTime @updatedAt
 
   @@map("achievements")
+}
+
+model Media {
+  id        String   @id @default(cuid())
+  url       String
+  year      String?  // Normalized year tag e.g. "2026", "2025"
+  title     String?  // Photo label / alt text
+  caption   String?  // Optional description
+  category  String?  @default("GALLERY") // GALLERY, EVENT, BANNER
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("media")
 }
 
 // ============================================

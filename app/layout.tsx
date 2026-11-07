@@ -16,20 +16,20 @@ const oswald = Oswald({
 });
 
 export const metadata: Metadata = {
-  title: "Rope Pro Academy | India's Premier Rope Skipping Academy - 7× World Record Holders",
-  description: "Join Rope Pro Academy, home to 7 Guinness World Record holders. Master rope skipping with 15+ expert coaches across 4 locations in India. Enroll now!",
+  title: "Rope Pro Academy | Train like a Pro, Perform like a Champion",
+  description: "Join Rope Pro Academy. Train like a Pro, Perform like a Champion with expert coaches, 7× Guinness World Record holders, and international champions. Enroll now!",
   keywords: "rope skipping, jump rope, rope pro academy, world record, fitness, india, rope skipping classes, jump rope training",
   openGraph: {
-    title: "Rope Pro Academy - Master the Art of Rope Skipping",
-    description: "Train with world champions at India's #1 rope skipping academy. 7 Guinness World Records, 300+ students, 15+ expert coaches.",
+    title: "Rope Pro Academy - Train like a Pro, Perform like a Champion",
+    description: "Train like a Pro, Perform like a Champion at India's premier rope skipping academy with 1000+ students trained and 16 international players.",
     url: "https://ropeproacademy.com",
     siteName: "Rope Pro Academy",
     type: "website",
   },
   twitter: {
     card: "summary_large_image",
-    title: "Rope Pro Academy",
-    description: "India's Premier Rope Skipping Academy - 7× Guinness World Record Holders",
+    title: "Rope Pro Academy | Train like a Pro, Perform like a Champion",
+    description: "Train like a Pro, Perform like a Champion at Rope Pro Academy - India's Premier Rope Skipping Academy",
   },
 };
 

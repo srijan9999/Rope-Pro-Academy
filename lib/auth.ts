@@ -161,6 +161,7 @@ export const authOptions: NextAuthOptions = {
                         password: true,
                         role: true,
                         status: true,
+                        mustChangePassword: true,
                     },
                 })
 
@@ -190,6 +191,7 @@ export const authOptions: NextAuthOptions = {
                     email: user.email,
                     role: user.role,
                     status: user.status,
+                    mustChangePassword: user.mustChangePassword,
                 }
             },
         }),
@@ -206,12 +208,27 @@ export const authOptions: NextAuthOptions = {
     },
 
     callbacks: {
-        async jwt({ token, user }) {
+        async jwt({ token, user, trigger }) {
             if (user) {
                 token.id = user.id
                 token.role = user.role
                 token.status = user.status
+                token.mustChangePassword = user.mustChangePassword
             }
+
+            // update() from client: re-read mustChangePassword directly from database
+            if (trigger === "update" && token.id) {
+                const fresh = await prisma.user.findUnique({
+                    where: { id: token.id },
+                    select: { mustChangePassword: true, status: true, role: true },
+                })
+                if (fresh) {
+                    token.mustChangePassword = fresh.mustChangePassword
+                    token.status = fresh.status
+                    token.role = fresh.role
+                }
+            }
+
             return token
         },
 
@@ -220,11 +237,17 @@ export const authOptions: NextAuthOptions = {
                 session.user.id = token.id
                 session.user.role = token.role
                 session.user.status = token.status
+                session.user.mustChangePassword = token.mustChangePassword
             }
             return session
         },
 
         async signIn({ user }) {
+            // Block users whose payment hasn't been verified yet
+            if (user.status === "PENDING_PAYMENT") {
+                throw new Error("Your registration payment is being verified. Please wait for admin approval.")
+            }
+
             // Allow PENDING users to login but features will be restricted
             // If you want to block PENDING users, uncomment the following:
             // if (user.status === "PENDING") {

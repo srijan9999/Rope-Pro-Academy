@@ -2,8 +2,9 @@
 
 import { useState } from "react"
 import Link from "next/link"
-import { useRouter } from "next/navigation"
 import { signIn, getSession } from "next-auth/react"
+import { getDashboardLink } from "@/lib/utils"
+import { UPDATE_PASSWORD_PATH } from "@/lib/auth-routes"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -17,7 +18,6 @@ interface FieldErrors {
 }
 
 export default function LoginPage() {
-    const router = useRouter()
     const [activeTab, setActiveTab] = useState("player")
     const [email, setEmail] = useState("")
     const [password, setPassword] = useState("")
@@ -104,31 +104,23 @@ export default function LoginPage() {
                 const session = await getSession()
                 console.log("📋 Session data:", session)
 
+                // Force password change on first login
+                if (session?.user?.mustChangePassword) {
+                    console.log("🔒 Password change required on first login. Redirecting...")
+                    window.location.assign(UPDATE_PASSWORD_PATH)
+                    return
+                }
+
                 if (!session?.user?.role) {
                     console.error("❌ Session missing role, falling back to tab-based redirect")
-                    router.push(`/dashboard/${activeTab}`)
-                    router.refresh()
+                    window.location.assign(`/dashboard/${activeTab}`)
                     return
                 }
 
                 // Role-based redirect using the actual authenticated user's role
-                const role = session.user.role
-                let dashboardUrl = "/dashboard/player" // default
-
-                if (role === "STUDENT" || role === "PLAYER") {
-                    dashboardUrl = "/dashboard/player"
-                } else if (role === "COACH") {
-                    dashboardUrl = "/dashboard/coach"
-                } else if (role === "ADMIN") {
-                    dashboardUrl = "/dashboard/admin"
-                }
-
-                console.log(`🚀 Redirecting to ${dashboardUrl} (role: ${role})`)
-
-                // Refresh the router cache so layouts/navbar update with auth state
-                router.refresh()
-                router.push(dashboardUrl)
-                // Keep isLoading=true during redirect to prevent UI flicker
+                const dashboardUrl = getDashboardLink(session.user.role)
+                console.log(`🚀 Redirecting to ${dashboardUrl} (role: ${session.user.role})`)
+                window.location.assign(dashboardUrl)
                 return
             }
 
