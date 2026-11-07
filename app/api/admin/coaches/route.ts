@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
-import bcrypt from "bcrypt"
 import { Prisma } from "@prisma/client"
 import { z } from "zod"
 import { authOptions, generateCoachId } from "@/lib/auth"

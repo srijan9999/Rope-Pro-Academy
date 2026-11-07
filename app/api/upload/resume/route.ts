@@ -87,7 +87,19 @@ export async function POST(request: NextRequest) {
             )
         }
 
-        // 3. Read buffer and validate magic bytes
+        // 3. Validate MIME type
+        const mimeType = file.type
+        if (mimeType && !ALLOWED_MIME_TYPES.includes(mimeType) && mimeType !== "application/octet-stream") {
+            return NextResponse.json(
+                {
+                    success: false,
+                    error: `Invalid file MIME type: ${mimeType}.`,
+                },
+                { status: 400 }
+            )
+        }
+
+        // 4. Read buffer and validate magic bytes
         const bytes = await file.arrayBuffer()
         const buffer = Buffer.from(bytes)
 

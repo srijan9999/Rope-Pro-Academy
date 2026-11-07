@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import type { NextRequest } from "next/server"
 import { getToken } from "next-auth/jwt"
-import { DASHBOARD_PATHS, isRole } from "@/lib/roles"
+import { isRole } from "@/lib/roles"
 import { UPDATE_PASSWORD_PATH, getRoleHome } from "@/lib/auth-routes"
 
 function matchesPath(pathname: string, base: string): boolean {
