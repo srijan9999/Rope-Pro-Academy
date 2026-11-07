@@ -166,7 +166,7 @@ export const authOptions: NextAuthOptions = {
                 })
 
                 if (!user) {
-                    throw new Error("Invalid email or password")
+                    throw new Error("INVALID_CREDENTIALS")
                 }
 
                 // Verify password
@@ -176,7 +176,27 @@ export const authOptions: NextAuthOptions = {
                 )
 
                 if (!isValidPassword) {
-                    throw new Error("Invalid email or password")
+                    throw new Error("INVALID_CREDENTIALS")
+                }
+
+                // Only ACTIVE accounts may authenticate (fail closed)
+                // Distinct status messages are returned ONLY after password matches
+                if (user.status !== "ACTIVE") {
+                    if (user.role === "STUDENT") {
+                        if (user.status === "PENDING_PAYMENT") {
+                            throw new Error("PENDING_PAYMENT")
+                        }
+                        if (user.status === "PENDING_VERIFICATION") {
+                            throw new Error("PENDING_VERIFICATION")
+                        }
+                        if (user.status === "PAYMENT_REJECTED") {
+                            throw new Error("PAYMENT_REJECTED")
+                        }
+                    }
+                    if (user.role === "COACH" && user.status === "PENDING") {
+                        throw new Error("COACH_PENDING")
+                    }
+                    throw new Error("ACCOUNT_INACTIVE")
                 }
 
                 // Update last login
@@ -243,21 +263,10 @@ export const authOptions: NextAuthOptions = {
         },
 
         async signIn({ user }) {
-            // Block users whose payment hasn't been verified yet
-            if (user.status === "PENDING_PAYMENT") {
-                throw new Error("Your registration payment is being verified. Please wait for admin approval.")
+            // Fail closed: only ACTIVE users may authenticate
+            if (user.status !== "ACTIVE") {
+                return false
             }
-
-            // Allow PENDING users to login but features will be restricted
-            // If you want to block PENDING users, uncomment the following:
-            // if (user.status === "PENDING") {
-            //   throw new Error("Your account is pending approval")
-            // }
-
-            if (user.status === "INACTIVE") {
-                throw new Error("Your account has been deactivated")
-            }
-
             return true
         },
     },

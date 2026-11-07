@@ -17,6 +17,17 @@ interface FieldErrors {
     password: string
 }
 
+const LOGIN_ERROR_MESSAGES: Record<string, string> = {
+    PENDING_PAYMENT: "Your registration is awaiting payment. Please register again with the same email to continue to payment.",
+    PENDING_VERIFICATION: "Your payment is pending admin approval. You can sign in once it is approved.",
+    PAYMENT_REJECTED: "We could not verify your payment. Please register again with the same email to resubmit, or contact the academy.",
+    COACH_PENDING: "Your coach application is under review. You can sign in once it is approved.",
+    ACCOUNT_INACTIVE: "This account is not active. Please contact the academy.",
+    SERVICE_UNAVAILABLE: "Authentication service is temporarily unavailable. Please try again shortly.",
+    INVALID_CREDENTIALS: "Invalid credentials.",
+    CredentialsSignin: "Invalid credentials.",
+}
+
 export default function LoginPage() {
     const [activeTab, setActiveTab] = useState("player")
     const [email, setEmail] = useState("")
@@ -88,11 +99,8 @@ export default function LoginPage() {
 
             if (result?.error) {
                 console.error("❌ Login error:", result.error)
-                if (result.error === "CredentialsSignin") {
-                    setSubmitError("Invalid email or password.")
-                } else {
-                    setSubmitError(result.error)
-                }
+                const friendlyMessage = LOGIN_ERROR_MESSAGES[result.error] || "Invalid credentials."
+                setSubmitError(friendlyMessage)
                 setIsLoading(false)
                 return
             }
