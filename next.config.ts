@@ -8,9 +8,10 @@ const nextConfig: NextConfig = {
     ignoreBuildErrors: true,
   },
   images: {
+    dangerouslyAllowSVG: false,
     remotePatterns: [
       { protocol: "https", hostname: "utfs.io" },
-      { protocol: "https", hostname: "*.ufs.sh" },
+      { protocol: "https", hostname: "ufs.sh" },
     ],
   },
   async redirects() {
