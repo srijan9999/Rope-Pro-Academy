@@ -186,7 +186,7 @@ export default function LoginPage() {
                                             <Label>Email <span className="text-red-500">*</span></Label>
                                             <Input
                                                 type="email"
-                                                placeholder={role === "admin" ? "admin@roproacademy.com" : "user@example.com"}
+                                                placeholder={role === "admin" ? "admin@example.com" : "user@example.com"}
                                                 value={email}
                                                 onChange={(e) => handleEmailChange(e.target.value)}
                                                 className={errors.email ? "border-red-500" : ""}
@@ -227,33 +227,6 @@ export default function LoginPage() {
                             </TabsContent>
                         ))}
                     </Tabs>
-
-                    {/* Demo Credentials */}
-                    <div className="mt-4 p-3 rounded-lg bg-blue-50 dark:bg-blue-950 text-sm">
-                        <p className="font-medium text-blue-700 dark:text-blue-300">
-                            Demo {activeTab.charAt(0).toUpperCase() + activeTab.slice(1)} Credentials:
-                        </p>
-                        <p className="text-blue-600 dark:text-blue-400 font-mono text-xs mt-1">
-                            {activeTab === "player" && (
-                                <>
-                                    Email: student@roproacademy.com<br />
-                                    Password: Student@123
-                                </>
-                            )}
-                            {activeTab === "coach" && (
-                                <>
-                                    Email: coach@roproacademy.com<br />
-                                    Password: Coach@123
-                                </>
-                            )}
-                            {activeTab === "admin" && (
-                                <>
-                                    Email: admin@roproacademy.com<br />
-                                    Password: Admin@123
-                                </>
-                            )}
-                        </p>
-                    </div>
                 </CardContent>
                 <CardFooter className="flex flex-col gap-2 text-center text-sm">
                     <Link href="/register/player" className="text-primary hover:underline">
