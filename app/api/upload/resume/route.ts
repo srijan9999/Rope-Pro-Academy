@@ -13,6 +13,47 @@ const ALLOWED_MIME_TYPES = [
 ]
 const MAX_FILE_SIZE = 5 * 1024 * 1024 // 5 MB
 
+function validateMagicBytes(buffer: Buffer, ext: string): boolean {
+    if (buffer.length < 8) return false
+
+    // PDF magic bytes: %PDF- (0x25 0x50 0x44 0x46 0x2D)
+    if (ext === ".pdf") {
+        return (
+            buffer[0] === 0x25 &&
+            buffer[1] === 0x50 &&
+            buffer[2] === 0x44 &&
+            buffer[3] === 0x46 &&
+            buffer[4] === 0x2d
+        )
+    }
+
+    // DOC magic bytes (OLE Compound File): 0xD0 0xCF 0x11 0xE0 0xA1 0xB1 0x1A 0xE1
+    if (ext === ".doc") {
+        return (
+            buffer[0] === 0xd0 &&
+            buffer[1] === 0xcf &&
+            buffer[2] === 0x11 &&
+            buffer[3] === 0xe0 &&
+            buffer[4] === 0xa1 &&
+            buffer[5] === 0xb1 &&
+            buffer[6] === 0x1a &&
+            buffer[7] === 0xe1
+        )
+    }
+
+    // DOCX magic bytes (ZIP archive PK..): 0x50 0x4B 0x03 0x04
+    if (ext === ".docx") {
+        return (
+            buffer[0] === 0x50 &&
+            buffer[1] === 0x4b &&
+            buffer[2] === 0x03 &&
+            buffer[3] === 0x04
+        )
+    }
+
+    return false
+}
+
 export async function POST(request: NextRequest) {
     try {
         const formData = await request.formData()
@@ -25,7 +66,7 @@ export async function POST(request: NextRequest) {
             )
         }
 
-        // 1. Validate file size
+        // 1. Validate file size (5 MB cap)
         if (file.size > MAX_FILE_SIZE) {
             return NextResponse.json(
                 { success: false, error: "File size exceeds the 5 MB limit" },
@@ -33,9 +74,9 @@ export async function POST(request: NextRequest) {
             )
         }
 
-        // 2. Validate file extension
-        const originalName = file.name || "resume.pdf"
-        const ext = path.extname(originalName).toLowerCase()
+        // 2. Validate file extension (PDF, DOC, DOCX only)
+        const clientName = file.name || "resume.pdf"
+        const ext = path.extname(clientName).toLowerCase()
         if (!ALLOWED_EXTENSIONS.includes(ext)) {
             return NextResponse.json(
                 {
@@ -46,37 +87,38 @@ export async function POST(request: NextRequest) {
             )
         }
 
-        // 3. Validate MIME type
-        const mimeType = file.type
-        const isAllowedMime =
-            ALLOWED_MIME_TYPES.includes(mimeType) ||
-            (mimeType === "application/octet-stream" && ALLOWED_EXTENSIONS.includes(ext))
+        // 3. Read buffer and validate magic bytes
+        const bytes = await file.arrayBuffer()
+        const buffer = Buffer.from(bytes)
 
-        if (!isAllowedMime) {
+        if (!validateMagicBytes(buffer, ext)) {
             return NextResponse.json(
                 {
                     success: false,
-                    error: `Invalid file MIME type: ${mimeType}. Please upload a valid PDF or Word document.`,
+                    error: "File content does not match the expected document format.",
                 },
                 { status: 400 }
             )
         }
 
-        // 4. Save file to public/uploads/resumes
-        const bytes = await file.arrayBuffer()
-        const buffer = Buffer.from(bytes)
-
-        const uploadDir = path.join(process.cwd(), "public", "uploads", "resumes")
+        // 4. Save file under a random UUID (ignore client filename entirely)
+        const uploadDir = path.resolve(process.cwd(), "public", "uploads", "resumes")
         await mkdir(uploadDir, { recursive: true })
 
-        const sanitizedBase = path.basename(originalName, ext).replace(/[^a-zA-Z0-9_-]/g, "_")
-        const uniqueSuffix = `${Date.now()}-${crypto.randomBytes(4).toString("hex")}`
-        const finalFileName = `${sanitizedBase}-${uniqueSuffix}${ext}`
-        const filePath = path.join(uploadDir, finalFileName)
+        const randomFileName = `${crypto.randomUUID()}${ext}`
+        const filePath = path.resolve(uploadDir, randomFileName)
+
+        // Block path traversal defensively
+        if (!filePath.startsWith(uploadDir)) {
+            return NextResponse.json(
+                { success: false, error: "Invalid file path" },
+                { status: 400 }
+            )
+        }
 
         await writeFile(filePath, buffer)
 
-        const fileUrl = `/uploads/resumes/${finalFileName}`
+        const fileUrl = `/uploads/resumes/${randomFileName}`
 
         return NextResponse.json({
             success: true,
