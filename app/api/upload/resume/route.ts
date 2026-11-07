@@ -123,7 +123,7 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({
             success: true,
             url: fileUrl,
-            name: originalName,
+            name: randomFileName,
             size: file.size,
         })
     } catch (error: unknown) {
