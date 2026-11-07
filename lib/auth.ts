@@ -139,6 +139,9 @@ export function isPasswordStrong(password: string): boolean {
     return minLength && hasUppercase && hasLowercase && hasNumber && hasSpecial
 }
 
+// SEC-08: Pre-computed dummy hash with cost 12 to eliminate timing discrepancy when user is not found
+const DUMMY_HASH = bcrypt.hashSync("dummy-password-timing-mitigation-only", 12)
+
 export const authOptions: NextAuthOptions = {
     providers: [
         CredentialsProvider({
@@ -173,7 +176,8 @@ export const authOptions: NextAuthOptions = {
                     throw new Error("SERVICE_UNAVAILABLE")
                 }
 
-                if (!user) {
+                if (!user || !user.password) {
+                    await bcrypt.compare(credentials.password, DUMMY_HASH)
                     throw new Error("INVALID_CREDENTIALS")
                 }
 
