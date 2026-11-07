@@ -2,6 +2,9 @@ import bcrypt from "bcrypt"
 import prisma from "./prisma"
 import { NextAuthOptions } from "next-auth"
 import CredentialsProvider from "next-auth/providers/credentials"
+import { assertEnv } from "./env"
+
+assertEnv()
 
 const SALT_ROUNDS = 12
 
