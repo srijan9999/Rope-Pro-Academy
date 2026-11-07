@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import Link from "next/link"
 import { signIn, getSession } from "next-auth/react"
 import { getDashboardLink } from "@/lib/utils"
@@ -35,6 +35,17 @@ export default function LoginPage() {
     const [errors, setErrors] = useState<FieldErrors>({ email: "", password: "" })
     const [submitError, setSubmitError] = useState<string | null>(null)
     const [isLoading, setIsLoading] = useState(false)
+
+    // Sanitize any URL query error parameter (e.g. redirected by NextAuth)
+    useEffect(() => {
+        if (typeof window !== "undefined") {
+            const params = new URLSearchParams(window.location.search)
+            const errorParam = params.get("error")
+            if (errorParam) {
+                setSubmitError(LOGIN_ERROR_MESSAGES[errorParam] || "Invalid credentials.")
+            }
+        }
+    }, [])
 
     // Clear field error when user types
     const handleEmailChange = (value: string) => {

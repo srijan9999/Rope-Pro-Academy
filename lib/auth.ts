@@ -153,17 +153,25 @@ export const authOptions: NextAuthOptions = {
                 }
 
                 // Find user by email
-                const user = await prisma.user.findUnique({
-                    where: { email: credentials.email.toLowerCase() },
-                    select: {
-                        id: true,
-                        email: true,
-                        password: true,
-                        role: true,
-                        status: true,
-                        mustChangePassword: true,
-                    },
-                })
+                let user
+                try {
+                    user = await prisma.user.findUnique({
+                        where: { email: credentials.email.toLowerCase() },
+                        select: {
+                            id: true,
+                            email: true,
+                            password: true,
+                            role: true,
+                            status: true,
+                            mustChangePassword: true,
+                        },
+                    })
+                } catch (error: unknown) {
+                    // SEC-04: Log code only, throw fixed code SERVICE_UNAVAILABLE
+                    const prismaCode = (error && typeof error === "object" && "code" in error) ? (error as { code: string }).code : "UNKNOWN"
+                    console.error("Database connection failure in auth lookup:", prismaCode)
+                    throw new Error("SERVICE_UNAVAILABLE")
+                }
 
                 if (!user) {
                     throw new Error("INVALID_CREDENTIALS")
