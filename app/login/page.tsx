@@ -171,7 +171,7 @@ export default function LoginPage() {
                                     <form onSubmit={handleLogin} className="space-y-4">
                                         {/* Error Alert */}
                                         {submitError && (
-                                            <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-red-700 dark:border-red-900 dark:bg-red-950 dark:text-red-400">
+                                            <div role="alert" className="rounded-lg border border-red-200 bg-red-50 p-4 text-red-700 dark:border-red-900 dark:bg-red-950 dark:text-red-400">
                                                 <div className="flex items-start gap-2">
                                                     <AlertCircle className="h-5 w-5 flex-shrink-0 mt-0.5" />
                                                     <div className="space-y-1">
@@ -192,7 +192,9 @@ export default function LoginPage() {
                                         <div className="space-y-2">
                                             <Label>Email <span className="text-red-500">*</span></Label>
                                             <Input
+                                                name="email"
                                                 type="email"
+                                                autoComplete="username"
                                                 placeholder={role === "admin" ? "admin@example.com" : "user@example.com"}
                                                 value={email}
                                                 onChange={(e) => handleEmailChange(e.target.value)}
@@ -205,7 +207,9 @@ export default function LoginPage() {
                                         <div className="space-y-2">
                                             <Label>Password <span className="text-red-500">*</span></Label>
                                             <Input
+                                                name="password"
                                                 type="password"
+                                                autoComplete="current-password"
                                                 placeholder="Enter your password"
                                                 value={password}
                                                 onChange={(e) => handlePasswordChange(e.target.value)}
