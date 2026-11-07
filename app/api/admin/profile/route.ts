@@ -18,7 +18,6 @@ export async function GET() {
             )
         }
 
-        console.log("📋 Fetching admin profile for:", session.user.email)
 
         // Find user
         const user = await prisma.user.findUnique({
@@ -63,7 +62,6 @@ export async function GET() {
             phone: admin?.phone || "",
         }
 
-        console.log("✅ Admin profile fetched successfully")
 
         return NextResponse.json({
             success: true,
@@ -95,7 +93,6 @@ export async function PATCH(request: Request) {
         }
 
         const body = await request.json()
-        console.log("📝 Updating admin profile for:", session.user.email)
 
         // Find user
         const user = await prisma.user.findUnique({
@@ -154,7 +151,6 @@ export async function PATCH(request: Request) {
                 )
             }
 
-            console.log("   ✓ Current password verified")
         }
 
         // Update in transaction
@@ -166,7 +162,6 @@ export async function PATCH(request: Request) {
                     where: { id: user.id },
                     data: { password: hashedPassword }
                 })
-                console.log("   ✓ Password updated")
             }
 
             // Check if admin profile exists
@@ -196,10 +191,8 @@ export async function PATCH(request: Request) {
                 })
             }
 
-            console.log("   ✓ Admin profile updated")
         })
 
-        console.log("✅ Admin profile updated successfully")
 
         return NextResponse.json({
             success: true,

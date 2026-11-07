@@ -98,18 +98,13 @@ export default function LoginPage() {
         setSubmitError(null)
 
         try {
-            console.log(`🔐 Attempting login for:`, email)
-
             const result = await signIn("credentials", {
                 redirect: false,
                 email: email.toLowerCase(),
                 password,
             })
 
-            console.log("📥 Login result:", result)
-
             if (result?.error) {
-                console.error("❌ Login error:", result.error)
                 const friendlyMessage = LOGIN_ERROR_MESSAGES[result.error] || "Invalid credentials."
                 setSubmitError(friendlyMessage)
                 setIsLoading(false)
@@ -117,28 +112,22 @@ export default function LoginPage() {
             }
 
             if (result?.ok) {
-                console.log("✅ Login successful! Fetching session for role-based redirect...")
-
                 // Fetch the actual session to get the real user role
                 const session = await getSession()
-                console.log("📋 Session data:", session)
 
                 // Force password change on first login
                 if (session?.user?.mustChangePassword) {
-                    console.log("🔒 Password change required on first login. Redirecting...")
                     window.location.assign(UPDATE_PASSWORD_PATH)
                     return
                 }
 
                 if (!session?.user?.role) {
-                    console.error("❌ Session missing role, falling back to tab-based redirect")
                     window.location.assign(`/dashboard/${activeTab}`)
                     return
                 }
 
                 // Role-based redirect using the actual authenticated user's role
                 const dashboardUrl = getDashboardLink(session.user.role)
-                console.log(`🚀 Redirecting to ${dashboardUrl} (role: ${session.user.role})`)
                 window.location.assign(dashboardUrl)
                 return
             }
@@ -147,8 +136,7 @@ export default function LoginPage() {
             setSubmitError("An unexpected error occurred. Please try again.")
             setIsLoading(false)
 
-        } catch (error) {
-            console.error("❌ Network error:", error)
+        } catch {
             setSubmitError("Network error. Please check your connection and try again.")
             setIsLoading(false)
         }

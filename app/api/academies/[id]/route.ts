@@ -139,7 +139,6 @@ export async function PATCH(
         }
 
         const data = validationResult.data
-        console.log("🏫 ACADEMY - Updating:", id, data)
 
         // Check name uniqueness if updating
         if (data.name && data.name !== existingAcademy.name) {

@@ -11,20 +11,15 @@ import { coachFullRegistrationSchema } from "@/lib/validations/coach"
  * Sets application_status to SUBMITTED and verification_level to LEVEL_1.
  */
 export async function POST(request: Request) {
-    console.log("═══════════════════════════════════════════════════════")
-    console.log("🏋️ [1/7] COACH REGISTRATION STARTED")
-    console.log("═══════════════════════════════════════════════════════")
 
     try {
         // 1. Parse request body
         const body = await request.json()
-        console.log("📦 [2/7] Received registration data")
 
         // 2. Validate with Zod
         const validationResult = coachFullRegistrationSchema.safeParse(body)
 
         if (!validationResult.success) {
-            console.log("❌ VALIDATION ERROR:", validationResult.error.flatten().fieldErrors)
             return NextResponse.json(
                 {
                     success: false,
@@ -61,7 +56,6 @@ export async function POST(request: Request) {
         })
 
         if (existingUser) {
-            console.log("❌ DUPLICATE: Email already registered:", data.email)
             return NextResponse.json(
                 {
                     success: false,
@@ -75,19 +69,15 @@ export async function POST(request: Request) {
         }
 
         // 4. Hash password
-        console.log("🔑 [3/7] Hashing password...")
         const hashedPassword = await hashPassword(data.password)
 
         // 5. Generate unique coach ID
         const coachId = await generateCoachId()
-        console.log("🆔 [4/7] Generated Coach ID:", coachId)
 
         // 6. Create User + Coach in a strict transaction
-        console.log("💾 [5/7] TRANSACTION STARTED - Creating User + Coach...")
 
         const result = await prisma.$transaction(async (tx) => {
             // Create User record
-            console.log("   → Creating User record...")
             const user = await tx.user.create({
                 data: {
                     email: data.email.toLowerCase(),
@@ -97,10 +87,8 @@ export async function POST(request: Request) {
                     mustChangePassword: false,
                 },
             })
-            console.log("   ✓ User created with ID:", user.id)
 
             // Create Coach profile
-            console.log("   → Creating Coach profile...")
             const coach = await tx.coach.create({
                 data: {
                     coachId,
@@ -147,13 +135,11 @@ export async function POST(request: Request) {
                     isActive: false,
                 },
             })
-            console.log("   ✓ Coach created with ID:", coach.coachId)
 
             return { user, coach }
         })
 
         // 7. Create audit log
-        console.log("📝 [6/7] Creating audit log...")
         await prisma.auditLog.create({
             data: {
                 userId: result.user.id,
@@ -171,7 +157,6 @@ export async function POST(request: Request) {
         })
 
         // 8. Create admin notification
-        console.log("🔔 Creating admin notification...")
         try {
             // Find admin users to notify
             const admins = await prisma.user.findMany({
@@ -194,14 +179,8 @@ export async function POST(request: Request) {
             }
         } catch (notifError) {
             // Non-critical: don't fail registration if notification fails
-            console.warn("⚠️ Could not create admin notification:", notifError)
         }
 
-        console.log("═══════════════════════════════════════════════════════")
-        console.log("🎉 [7/7] COACH REGISTRATION COMPLETE!")
-        console.log("   User ID:", result.user.id)
-        console.log("   Coach ID:", result.coach.coachId)
-        console.log("═══════════════════════════════════════════════════════")
 
         // Return success
         return NextResponse.json(
@@ -218,13 +197,8 @@ export async function POST(request: Request) {
             { status: 201 }
         )
     } catch (error: unknown) {
-        console.error("═══════════════════════════════════════════════════════")
-        console.error("❌ COACH REGISTRATION CRASHED!")
-        console.error("═══════════════════════════════════════════════════════")
 
         if (error instanceof Error) {
-            console.error("Error:", error.message)
-            console.error("Stack:", error.stack)
 
             if (error.message.includes("Unique constraint")) {
                 return NextResponse.json(

@@ -20,7 +20,6 @@ export async function GET() {
             )
         }
 
-        console.log("📋 Fetching profile for:", session.user.email)
 
         // Find user and their student profile
         const user = await prisma.user.findUnique({
@@ -81,7 +80,6 @@ export async function GET() {
             skillLevel: student.skillLevel,
         }
 
-        console.log("✅ Profile fetched successfully for:", student.studentId)
 
         return NextResponse.json({
             success: true,
@@ -114,8 +112,6 @@ export async function PATCH(request: Request) {
         }
 
         const body = await request.json()
-        console.log("📝 Updating profile for:", session.user.email)
-        console.log("📦 Update data:", Object.keys(body))
 
         // Find user
         const user = await prisma.user.findUnique({
@@ -193,7 +189,6 @@ export async function PATCH(request: Request) {
                 )
             }
 
-            console.log("   ✓ Current password verified")
         }
 
         // Update in transaction
@@ -205,7 +200,6 @@ export async function PATCH(request: Request) {
                     where: { id: user.id },
                     data: { password: hashedPassword }
                 })
-                console.log("   ✓ Password updated")
             }
 
             // Build student update data
@@ -246,11 +240,9 @@ export async function PATCH(request: Request) {
                     where: { id: student.id },
                     data: studentUpdateData
                 })
-                console.log("   ✓ Student profile updated")
             }
         })
 
-        console.log("✅ Profile updated successfully")
 
         return NextResponse.json({
             success: true,

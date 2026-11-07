@@ -19,7 +19,6 @@ export async function GET() {
             )
         }
 
-        console.log("📋 Fetching coach profile for:", session.user.email)
 
         // Find user
         const user = await prisma.user.findUnique({
@@ -78,7 +77,6 @@ export async function GET() {
             photo: coach.photoUrl,
         }
 
-        console.log("✅ Coach profile fetched successfully")
 
         return NextResponse.json({
             success: true,
@@ -110,7 +108,6 @@ export async function PATCH(request: Request) {
         }
 
         const body = await request.json()
-        console.log("📝 Updating coach profile for:", session.user.email)
 
         // Find user
         const user = await prisma.user.findUnique({
@@ -181,7 +178,6 @@ export async function PATCH(request: Request) {
                 )
             }
 
-            console.log("   ✓ Current password verified")
         }
 
         // Update in transaction
@@ -193,7 +189,6 @@ export async function PATCH(request: Request) {
                     where: { id: user.id },
                     data: { password: hashedPassword }
                 })
-                console.log("   ✓ Password updated")
             }
 
             // Build coach update data
@@ -216,11 +211,9 @@ export async function PATCH(request: Request) {
                     where: { id: coach.id },
                     data: coachUpdateData
                 })
-                console.log("   ✓ Coach profile updated")
             }
         })
 
-        console.log("✅ Coach profile updated successfully")
 
         return NextResponse.json({
             success: true,
