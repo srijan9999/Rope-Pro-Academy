@@ -33,10 +33,15 @@ export function assertEnv(): void {
         errors.push("NEXTAUTH_SECRET is missing or shorter than 32 characters.")
     }
 
-    // 3. NEXTAUTH_URL (https everywhere except localhost/127.0.0.1)
+    // 3. NEXTAUTH_URL (Required only in Production; skipped in Vercel Preview where NextAuth infers VERCEL_URL)
+    const isVercelPreview =
+        process.env.VERCEL_ENV === "preview" ||
+        (Boolean(process.env.VERCEL_URL) && process.env.VERCEL_ENV !== "production")
+    const isProduction = process.env.NODE_ENV === "production" && !isVercelPreview
+
     const nextAuthUrl = process.env.NEXTAUTH_URL?.trim()
-    if (process.env.NODE_ENV === "production" && !nextAuthUrl) {
-        errors.push("NEXTAUTH_URL is missing or empty in production.")
+    if (isProduction && !nextAuthUrl) {
+        errors.push("NEXTAUTH_URL is required in production.")
     } else if (nextAuthUrl) {
         try {
             const parsed = new URL(nextAuthUrl)
