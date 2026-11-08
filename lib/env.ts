@@ -60,6 +60,14 @@ export function assertEnv(): void {
         errors.push("DEFAULT_TEMP_PASSWORD is missing or shorter than 8 characters.")
     }
 
+    // 5. ENCRYPTION_KEY (Required in production; 64-character hex string)
+    const encryptionKey = process.env.ENCRYPTION_KEY?.trim()
+    if (process.env.NODE_ENV === "production" && !encryptionKey) {
+        errors.push("ENCRYPTION_KEY is required in production.")
+    } else if (encryptionKey && (encryptionKey.length !== 64 || !/^[0-9a-fA-F]{64}$/.test(encryptionKey))) {
+        errors.push("ENCRYPTION_KEY must be a 64-character hexadecimal string.")
+    }
+
     if (errors.length > 0) {
         throw new Error(
             `\n❌ ENVIRONMENT CONFIGURATION ERROR:\n- ` + errors.join("\n- ") + "\n"

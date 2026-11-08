@@ -1,15 +1,15 @@
+import "server-only"
 import crypto from "crypto"
 
-// Use a secure key from environment variables
-// ENCRYPTION_KEY should be a 32-byte (256-bit) hex string (64 characters)
+// ENCRYPTION_KEY must be a 32-byte (256-bit) hex string (64 characters)
 const getEncryptionKey = (): Buffer => {
-    const key = process.env.ENCRYPTION_KEY
-    if (key && key.length >= 64) {
-        return Buffer.from(key.slice(0, 64), "hex")
+    const key = process.env.ENCRYPTION_KEY?.trim()
+    if (!key || key.length !== 64 || !/^[0-9a-fA-F]{64}$/.test(key)) {
+        throw new Error(
+            "ENCRYPTION_KEY environment variable is required and must be a 64-character hex string (32 bytes)."
+        )
     }
-    // Fallback for development - generate a consistent key
-    // In production, always set ENCRYPTION_KEY in .env
-    return Buffer.from("0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef", "hex")
+    return Buffer.from(key, "hex")
 }
 
 const IV_LENGTH = 16 // For AES, this is always 16
