@@ -24,10 +24,7 @@ const uploadThingHost = getUploadThingHost();
 
 const nextConfig: NextConfig = {
   typescript: {
-    // !! WARN !!
-    // Dangerously allow production builds to successfully complete even if
-    // your project has type errors.
-    ignoreBuildErrors: true,
+    ignoreBuildErrors: false,
   },
   images: {
     dangerouslyAllowSVG: false,
@@ -47,6 +44,21 @@ const nextConfig: NextConfig = {
       {
         source: "/records",
         destination: "/achievements",
+        permanent: true,
+      },
+      {
+        source: "/gallery",
+        destination: "/achievements#photo-gallery",
+        permanent: true,
+      },
+      {
+        source: "/events",
+        destination: "/programs",
+        permanent: true,
+      },
+      {
+        source: "/blog",
+        destination: "/about-us",
         permanent: true,
       },
     ];

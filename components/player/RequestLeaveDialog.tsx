@@ -59,7 +59,7 @@ export function RequestLeaveDialog({ open, onClose, onSuccess }: RequestLeaveDia
     const [isUploading, setIsUploading] = useState(false)
 
     const form = useForm<RequestLeaveInput>({
-        resolver: zodResolver(requestLeaveSchema),
+        resolver: zodResolver(requestLeaveSchema) as any,
         defaultValues: {
             leaveType: 'CASUAL',
             priority: 'MEDIUM',
@@ -132,8 +132,7 @@ export function RequestLeaveDialog({ open, onClose, onSuccess }: RequestLeaveDia
             toast({
                 title: 'Success!',
                 description: 'Your leave request has been submitted to the Admin.',
-                className: 'bg-green-100 text-green-900 border-green-200',
-                duration: 5000
+                variant: 'default',
             })
 
             form.reset()
@@ -348,7 +347,7 @@ export function RequestLeaveDialog({ open, onClose, onSuccess }: RequestLeaveDia
                                                     onSelect={(date) => field.onChange(date?.toISOString())}
                                                     disabled={(date) =>
                                                         date < new Date() ||
-                                                        (startDate && date < new Date(startDate))
+                                                        Boolean(startDate && date < new Date(startDate))
                                                     }
                                                     initialFocus
                                                 />

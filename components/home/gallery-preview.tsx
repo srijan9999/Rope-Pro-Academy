@@ -30,7 +30,7 @@ export function GalleryPreview() {
 
                 <div className="mt-12 text-center">
                     <Button size="lg" className="h-12 skew-x-[-12deg] bg-primary px-8 text-base font-bold uppercase hover:bg-red-700" asChild>
-                        <Link href="/gallery">
+                        <Link href="/achievements#photo-gallery">
                             <span className="skew-x-[12deg] inline-block">View More Images</span>
                         </Link>
                     </Button>

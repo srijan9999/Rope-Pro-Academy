@@ -112,9 +112,9 @@ export function SiteFooter() {
                         <Link href="/coaches" className="hover:text-primary">Our Coaches</Link>
                         <Link href="/achievements" className="hover:text-primary">Hall of Fame</Link>
                         <Link href="/locations" className="hover:text-primary">Locations</Link>
-                        <Link href="/gallery" className="hover:text-primary">Gallery</Link>
-                        <Link href="/events" className="hover:text-primary">Events</Link>
-                        <Link href="/blog" className="hover:text-primary">Blog</Link>
+                        <Link href="/achievements#photo-gallery" className="hover:text-primary">Gallery</Link>
+                        <Link href="/programs" className="hover:text-primary">Events</Link>
+                        <Link href="/about-us" className="hover:text-primary">Blog</Link>
                     </nav>
                 </div>
 

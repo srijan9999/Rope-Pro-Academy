@@ -33,7 +33,7 @@ export function RevenueChart({ data }: RevenueChartProps) {
                 <Tooltip
                     cursor={{ fill: 'transparent' }}
                     contentStyle={{ borderRadius: '8px', border: '1px solid #e2e8f0' }}
-                    formatter={(value: number) => [formatCurrency(value), 'Revenue']}
+                    formatter={(value: any) => [formatCurrency(Number(value) || 0), 'Revenue']}
                 />
                 <Bar
                     dataKey="revenue"
