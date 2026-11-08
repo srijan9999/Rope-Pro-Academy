@@ -9,6 +9,15 @@ export function SessionDebug() {
         return null
     }
 
+    // In production, only show to Admins (or if NEXT_PUBLIC_SHOW_DEBUG=true)
+    const isDev = process.env.NODE_ENV !== "production"
+    const isAdmin = session.user?.role === "ADMIN"
+    const isExplicitlyEnabled = process.env.NEXT_PUBLIC_SHOW_DEBUG === "true"
+
+    if (!isDev && !isAdmin && !isExplicitlyEnabled) {
+        return null
+    }
+
     return (
         <aside
             aria-label="Session Debug Inspector"
