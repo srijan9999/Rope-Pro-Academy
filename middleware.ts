@@ -49,10 +49,9 @@ export async function middleware(request: NextRequest) {
         return NextResponse.redirect(new URL(getRoleHome(role), request.url))
     }
 
-    // 5. Signed-in users visiting /login or /register -> redirect to role home
-    if (isAuthRoute) {
-        return NextResponse.redirect(new URL(getRoleHome(role), request.url))
-    }
+    // 5. Note: Signed-in redirects on /login and /register are handled server-side
+    // in their respective page components using revocation-aware getServerSession,
+    // preventing infinite redirect loops for revoked sessions (SEC-16b).
 
     // 6. Role-based dashboard access control with exact-or-slash boundaries
     if (isDashboardRoute) {
