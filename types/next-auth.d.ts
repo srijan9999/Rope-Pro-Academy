@@ -3,11 +3,12 @@ import { DefaultJWT } from "next-auth/jwt"
 
 declare module "next-auth" {
     interface Session {
-        user: {
+        user?: {
             id: string
             role: string // "ADMIN" | "COACH" | "STUDENT"
             status: string // "ACTIVE" | "INACTIVE" | "PENDING"
             mustChangePassword?: boolean
+            revoked?: boolean
         } & DefaultSession["user"]
     }
 
@@ -25,5 +26,7 @@ declare module "next-auth/jwt" {
         role: string // "ADMIN" | "COACH" | "STUDENT"
         status: string // "ACTIVE" | "INACTIVE" | "PENDING"
         mustChangePassword?: boolean
+        lastChecked?: number
+        revoked?: boolean
     }
 }

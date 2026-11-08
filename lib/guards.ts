@@ -53,6 +53,20 @@ export async function requireRole(...allowedRoles: Role[]): Promise<GuardResult>
         }
     }
 
+    // Active status guard
+    if (session.user.status !== "ACTIVE") {
+        return {
+            response: NextResponse.json(
+                {
+                    success: false,
+                    error: "Account is not active.",
+                    code: "ACCOUNT_NOT_ACTIVE",
+                },
+                { status: 403 }
+            ),
+        }
+    }
+
     // Role check
     const userRole = session.user.role as Role
     if (allowedRoles.length > 0 && !allowedRoles.includes(userRole)) {

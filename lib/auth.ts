@@ -249,18 +249,51 @@ export const authOptions: NextAuthOptions = {
                 token.role = user.role
                 token.status = user.status
                 token.mustChangePassword = user.mustChangePassword
+                token.lastChecked = Date.now()
+                token.revoked = false
+                return token
             }
 
-            // update() from client: re-read mustChangePassword directly from database
+            // update() from client: re-read state directly from database
             if (trigger === "update" && token.id) {
-                const fresh = await prisma.user.findUnique({
-                    where: { id: token.id },
-                    select: { mustChangePassword: true, status: true, role: true },
-                })
-                if (fresh) {
-                    token.mustChangePassword = fresh.mustChangePassword
-                    token.status = fresh.status
-                    token.role = fresh.role
+                try {
+                    const fresh = await prisma.user.findUnique({
+                        where: { id: token.id },
+                        select: { mustChangePassword: true, status: true, role: true },
+                    })
+                    if (fresh) {
+                        token.mustChangePassword = fresh.mustChangePassword
+                        token.status = fresh.status
+                        token.role = fresh.role
+                        token.revoked = fresh.status !== "ACTIVE"
+                        token.lastChecked = Date.now()
+                    }
+                } catch {
+                    // Deliberate fail-open on transient database connection error to preserve service availability for active users
+                }
+                return token
+            }
+
+            // 5-minute database revalidation
+            const now = Date.now()
+            const fiveMinutes = 5 * 60 * 1000
+            if (token.id && (!token.lastChecked || now - (token.lastChecked as number) > fiveMinutes)) {
+                try {
+                    const freshUser = await prisma.user.findUnique({
+                        where: { id: token.id as string },
+                        select: { role: true, status: true, mustChangePassword: true },
+                    })
+                    if (!freshUser || freshUser.status !== "ACTIVE") {
+                        token.revoked = true
+                    } else {
+                        token.role = freshUser.role
+                        token.status = freshUser.status
+                        token.mustChangePassword = freshUser.mustChangePassword
+                        token.lastChecked = now
+                        token.revoked = false
+                    }
+                } catch {
+                    // Deliberate fail-open on transient database connection error to preserve service availability for active users
                 }
             }
 
@@ -268,7 +301,15 @@ export const authOptions: NextAuthOptions = {
         },
 
         async session({ session, token }) {
-            if (token) {
+            // When token is revoked, return session without user so every `if (!session?.user)` check fails closed
+            if (token?.revoked) {
+                return {
+                    ...session,
+                    user: undefined as any,
+                }
+            }
+
+            if (token && session.user) {
                 session.user.id = token.id
                 session.user.role = token.role
                 session.user.status = token.status
