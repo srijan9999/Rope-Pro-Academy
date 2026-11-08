@@ -38,9 +38,9 @@ function getNormalizedEndpointId(dbUrlStr: string): string {
 }
 
 function verifyHostGuard(): void {
-    const dbUrlStr = process.env.DATABASE_URL
+    const dbUrlStr = process.env.DATABASE_URL || process.env.LIVE_DATABASE_URL
     if (!dbUrlStr) {
-        console.error("❌ ERROR: DATABASE_URL is not set.")
+        console.error("❌ ERROR: Neither DATABASE_URL nor LIVE_DATABASE_URL is set.")
         process.exit(1)
     }
 
