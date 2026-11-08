@@ -2,7 +2,11 @@ import bcrypt from "bcrypt"
 import { prisma } from "../lib/prisma"
 
 async function main() {
-    const def = process.env.DEFAULT_TEMP_PASSWORD || "Ropepro@112"
+    const def = process.env.DEFAULT_TEMP_PASSWORD
+    if (!def) {
+        console.error("❌ DEFAULT_TEMP_PASSWORD environment variable is not set")
+        process.exit(1)
+    }
 
     console.log("🔍 Scanning for users on the default temporary password...")
 

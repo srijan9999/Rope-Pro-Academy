@@ -2,6 +2,9 @@ import bcrypt from "bcrypt"
 import prisma from "./prisma"
 import { NextAuthOptions } from "next-auth"
 import CredentialsProvider from "next-auth/providers/credentials"
+import { assertEnv } from "./env"
+
+assertEnv()
 
 const SALT_ROUNDS = 12
 
@@ -139,6 +142,9 @@ export function isPasswordStrong(password: string): boolean {
     return minLength && hasUppercase && hasLowercase && hasNumber && hasSpecial
 }
 
+// SEC-08: Pre-computed dummy hash with cost 12 to eliminate timing discrepancy when user is not found
+const DUMMY_HASH = bcrypt.hashSync("dummy-password-timing-mitigation-only", 12)
+
 export const authOptions: NextAuthOptions = {
     providers: [
         CredentialsProvider({
@@ -153,20 +159,29 @@ export const authOptions: NextAuthOptions = {
                 }
 
                 // Find user by email
-                const user = await prisma.user.findUnique({
-                    where: { email: credentials.email.toLowerCase() },
-                    select: {
-                        id: true,
-                        email: true,
-                        password: true,
-                        role: true,
-                        status: true,
-                        mustChangePassword: true,
-                    },
-                })
+                let user
+                try {
+                    user = await prisma.user.findUnique({
+                        where: { email: credentials.email.toLowerCase() },
+                        select: {
+                            id: true,
+                            email: true,
+                            password: true,
+                            role: true,
+                            status: true,
+                            mustChangePassword: true,
+                        },
+                    })
+                } catch (error: unknown) {
+                    // SEC-04: Log code only, throw fixed code SERVICE_UNAVAILABLE
+                    const prismaCode = (error && typeof error === "object" && "code" in error) ? (error as { code: string }).code : "UNKNOWN"
+                    console.error("Database connection failure in auth lookup:", prismaCode)
+                    throw new Error("SERVICE_UNAVAILABLE")
+                }
 
-                if (!user) {
-                    throw new Error("Invalid email or password")
+                if (!user || !user.password) {
+                    await bcrypt.compare(credentials.password, DUMMY_HASH)
+                    throw new Error("INVALID_CREDENTIALS")
                 }
 
                 // Verify password
@@ -176,7 +191,27 @@ export const authOptions: NextAuthOptions = {
                 )
 
                 if (!isValidPassword) {
-                    throw new Error("Invalid email or password")
+                    throw new Error("INVALID_CREDENTIALS")
+                }
+
+                // Only ACTIVE accounts may authenticate (fail closed)
+                // Distinct status messages are returned ONLY after password matches
+                if (user.status !== "ACTIVE") {
+                    if (user.role === "STUDENT") {
+                        if (user.status === "PENDING_PAYMENT") {
+                            throw new Error("PENDING_PAYMENT")
+                        }
+                        if (user.status === "PENDING_VERIFICATION") {
+                            throw new Error("PENDING_VERIFICATION")
+                        }
+                        if (user.status === "PAYMENT_REJECTED") {
+                            throw new Error("PAYMENT_REJECTED")
+                        }
+                    }
+                    if (user.role === "COACH" && user.status === "PENDING") {
+                        throw new Error("COACH_PENDING")
+                    }
+                    throw new Error("ACCOUNT_INACTIVE")
                 }
 
                 // Update last login
@@ -199,7 +234,7 @@ export const authOptions: NextAuthOptions = {
 
     session: {
         strategy: "jwt",
-        maxAge: 30 * 24 * 60 * 60, // 30 days
+        maxAge: 7 * 24 * 60 * 60, // 7 days
     },
 
     pages: {
@@ -214,18 +249,51 @@ export const authOptions: NextAuthOptions = {
                 token.role = user.role
                 token.status = user.status
                 token.mustChangePassword = user.mustChangePassword
+                token.lastChecked = Date.now()
+                token.revoked = false
+                return token
             }
 
-            // update() from client: re-read mustChangePassword directly from database
+            // update() from client: re-read state directly from database
             if (trigger === "update" && token.id) {
-                const fresh = await prisma.user.findUnique({
-                    where: { id: token.id },
-                    select: { mustChangePassword: true, status: true, role: true },
-                })
-                if (fresh) {
-                    token.mustChangePassword = fresh.mustChangePassword
-                    token.status = fresh.status
-                    token.role = fresh.role
+                try {
+                    const fresh = await prisma.user.findUnique({
+                        where: { id: token.id },
+                        select: { mustChangePassword: true, status: true, role: true },
+                    })
+                    if (fresh) {
+                        token.mustChangePassword = fresh.mustChangePassword
+                        token.status = fresh.status
+                        token.role = fresh.role
+                        token.revoked = fresh.status !== "ACTIVE"
+                        token.lastChecked = Date.now()
+                    }
+                } catch {
+                    // Deliberate fail-open on transient database connection error to preserve service availability for active users
+                }
+                return token
+            }
+
+            // 5-minute database revalidation
+            const now = Date.now()
+            const fiveMinutes = 5 * 60 * 1000
+            if (token.id && (!token.lastChecked || now - (token.lastChecked as number) > fiveMinutes)) {
+                try {
+                    const freshUser = await prisma.user.findUnique({
+                        where: { id: token.id as string },
+                        select: { role: true, status: true, mustChangePassword: true },
+                    })
+                    if (!freshUser || freshUser.status !== "ACTIVE") {
+                        token.revoked = true
+                    } else {
+                        token.role = freshUser.role
+                        token.status = freshUser.status
+                        token.mustChangePassword = freshUser.mustChangePassword
+                        token.lastChecked = now
+                        token.revoked = false
+                    }
+                } catch {
+                    // Deliberate fail-open on transient database connection error to preserve service availability for active users
                 }
             }
 
@@ -233,7 +301,15 @@ export const authOptions: NextAuthOptions = {
         },
 
         async session({ session, token }) {
-            if (token) {
+            // When token is revoked, return session without user so every `if (!session?.user)` check fails closed
+            if (token?.revoked) {
+                return {
+                    ...session,
+                    user: undefined as any,
+                }
+            }
+
+            if (token && session.user) {
                 session.user.id = token.id
                 session.user.role = token.role
                 session.user.status = token.status
@@ -243,21 +319,10 @@ export const authOptions: NextAuthOptions = {
         },
 
         async signIn({ user }) {
-            // Block users whose payment hasn't been verified yet
-            if (user.status === "PENDING_PAYMENT") {
-                throw new Error("Your registration payment is being verified. Please wait for admin approval.")
+            // Fail closed: only ACTIVE users may authenticate
+            if (user.status !== "ACTIVE") {
+                return false
             }
-
-            // Allow PENDING users to login but features will be restricted
-            // If you want to block PENDING users, uncomment the following:
-            // if (user.status === "PENDING") {
-            //   throw new Error("Your account is pending approval")
-            // }
-
-            if (user.status === "INACTIVE") {
-                throw new Error("Your account has been deactivated")
-            }
-
             return true
         },
     },

@@ -8,6 +8,7 @@ declare module "next-auth" {
             role: string // "ADMIN" | "COACH" | "STUDENT"
             status: string // "ACTIVE" | "INACTIVE" | "PENDING"
             mustChangePassword?: boolean
+            revoked?: boolean
         } & DefaultSession["user"]
     }
 
@@ -25,5 +26,7 @@ declare module "next-auth/jwt" {
         role: string // "ADMIN" | "COACH" | "STUDENT"
         status: string // "ACTIVE" | "INACTIVE" | "PENDING"
         mustChangePassword?: boolean
+        lastChecked?: number
+        revoked?: boolean
     }
 }

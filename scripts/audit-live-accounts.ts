@@ -1,0 +1,158 @@
+/**
+ * Audit Live Accounts Script (READ-ONLY)
+ *
+ * Scans the database for users whose emails match any demo, seed, or test
+ * emails from repository history, and checks if their password hashes match
+ * any known seed/demo passwords passed via KNOWN_PASSWORDS.
+ *
+ * SAFETY REQUIREMENTS:
+ * - Requires CONFIRM_DB_HOST matching the database host in DATABASE_URL.
+ * - Read-only: performs zero writes, updates, or deletes.
+ * - Masks all email addresses in standard output.
+ *
+ * Usage:
+ *   CONFIRM_DB_HOST="ep-xxxx.neon.tech" KNOWN_PASSWORDS="pass1,pass2" npx tsx scripts/audit-live-accounts.ts
+ */
+
+import { PrismaClient } from "@prisma/client"
+import bcrypt from "bcrypt"
+
+const HISTORICAL_DEMO_EMAILS = [
+    "admin@ropeproacademy.com",
+    "coach@roproacademy.com",
+    "coach@ropeproacademy.com",
+    "admin@roproacademy.com",
+    "player@ropeproacademy.com",
+    "student@ropeproacademy.com",
+    "superadmin@ropeproacademy.com",
+    "coach.vikas@ropeproacademy.com",
+    "coach.rohit@ropeproacademy.com",
+    "coach.priya@ropeproacademy.com",
+    "coach.arun@ropeproacademy.com",
+    "coach.deepak@ropeproacademy.com",
+    "hacker_coach@security-test.com",
+    "hacker_admin@security-test.com",
+]
+
+function maskEmail(email: string): string {
+    const atIndex = email.indexOf("@")
+    if (atIndex === -1) return "***"
+    const local = email.slice(0, atIndex)
+    const domain = email.slice(atIndex + 1)
+    const dotIndex = domain.lastIndexOf(".")
+    const domName = dotIndex === -1 ? domain : domain.slice(0, dotIndex)
+    const tld = dotIndex === -1 ? "" : domain.slice(dotIndex)
+
+    const maskedLocal = local.length <= 2 ? local[0] + "***" : local.slice(0, 2) + "***"
+    const maskedDom = domName.length <= 1 ? domName[0] + "***" : domName[0] + "****"
+    return `${maskedLocal}@${maskedDom}${tld}`
+}
+
+function getNormalizedEndpointId(dbUrlStr: string): string {
+    const match = dbUrlStr.match(/ep-[a-z0-9-]+/)
+    if (!match) return ""
+    return match[0].replace(/-pooler$/, "")
+}
+
+function verifyHostGuard(): void {
+    const dbUrlStr = process.env.DATABASE_URL || process.env.LIVE_DATABASE_URL
+    if (!dbUrlStr) {
+        console.error("❌ ERROR: Neither DATABASE_URL nor LIVE_DATABASE_URL is set.")
+        process.exit(1)
+    }
+
+    const actualEndpoint = getNormalizedEndpointId(dbUrlStr)
+    const confirmed = (process.env.CONFIRM_ENDPOINT_ID || process.env.CONFIRM_DB_HOST)?.trim()
+    const confirmedNorm = confirmed ? getNormalizedEndpointId(confirmed) || confirmed : ""
+
+    if (!confirmedNorm) {
+        console.error(
+            `❌ SAFETY CHECK FAILED: CONFIRM_ENDPOINT_ID is not set.\n` +
+            `Please run with CONFIRM_ENDPOINT_ID="${actualEndpoint}" to verify target database.`
+        )
+        process.exit(1)
+    }
+
+    if (confirmedNorm !== actualEndpoint) {
+        console.error(
+            `❌ SAFETY CHECK FAILED: CONFIRM_ENDPOINT_ID ('${confirmedNorm}') does not match actual endpoint ('${actualEndpoint}'). Aborting.`
+        )
+        process.exit(1)
+    }
+
+    console.log(`🛡️ Target endpoint verified: ${actualEndpoint}`)
+}
+
+async function main() {
+    verifyHostGuard()
+
+    const prisma = new PrismaClient()
+
+    try {
+        const knownPasswords = (process.env.KNOWN_PASSWORDS || "")
+            .split(",")
+            .map((p) => p.trim())
+            .filter((p) => p.length > 0)
+
+        console.log("🔍 Scanning database for known seed/demo accounts...")
+        console.log(`Checking against ${HISTORICAL_DEMO_EMAILS.length} historical email signatures.`)
+        if (knownPasswords.length > 0) {
+            console.log(`Checking against ${knownPasswords.length} candidate known default passwords.`)
+        } else {
+            console.log("ℹ️ KNOWN_PASSWORDS env var not provided. Password default match check skipped.")
+        }
+
+        const matchedUsers = await prisma.user.findMany({
+            where: {
+                email: {
+                    in: HISTORICAL_DEMO_EMAILS,
+                },
+            },
+            select: {
+                id: true,
+                email: true,
+                role: true,
+                status: true,
+                password: true,
+                mustChangePassword: true,
+                createdAt: true,
+            },
+        })
+
+        if (matchedUsers.length === 0) {
+            console.log("\n✅ Clean: No historical demo/seed accounts found in this database.")
+            return
+        }
+
+        console.log(`\n⚠️ Found ${matchedUsers.length} account(s) matching historical seed/demo emails:`)
+        console.log("--------------------------------------------------------------------------------")
+
+        for (const user of matchedUsers) {
+            let isDefaultPassword = false
+            if (knownPasswords.length > 0 && user.password) {
+                for (const candidate of knownPasswords) {
+                    if (await bcrypt.compare(candidate, user.password)) {
+                        isDefaultPassword = true
+                        break
+                    }
+                }
+            }
+
+            console.log(`ID:                   ${user.id}`)
+            console.log(`Masked Email:         ${maskEmail(user.email)}`)
+            console.log(`Role:                 ${user.role}`)
+            console.log(`Status:               ${user.status}`)
+            console.log(`Is Default Password:  ${knownPasswords.length > 0 ? (isDefaultPassword ? "YES (MATCHES KNOWN PASSWORD)" : "NO") : "NOT TESTED"}`)
+            console.log(`mustChangePassword:   ${user.mustChangePassword ? "YES" : "NO"}`)
+            console.log(`Created At:           ${user.createdAt.toISOString()}`)
+            console.log("--------------------------------------------------------------------------------")
+        }
+    } finally {
+        await prisma.$disconnect()
+    }
+}
+
+main().catch((err) => {
+    console.error("❌ Unexpected error during audit:", err.message)
+    process.exit(1)
+})

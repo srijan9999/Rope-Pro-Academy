@@ -4,115 +4,58 @@ import bcrypt from "bcrypt"
 const prisma = new PrismaClient()
 
 async function main() {
+    if (process.env.NODE_ENV === "production" && process.env.ALLOW_PROD_SEED !== "1") {
+        console.error("❌ Refusing to run seed in production without ALLOW_PROD_SEED=1")
+        process.exit(1)
+    }
+
     console.log("🌱 Starting database seeding...")
 
     // ============================================
-    // 1. CREATE DEFAULT ADMIN USER
+    // 1. BOOTSTRAP ADMIN USER (FROM ENV)
     // ============================================
-    console.log("Creating admin user...")
+    const seedAdminEmail = process.env.SEED_ADMIN_EMAIL
+    const seedAdminPassword = process.env.SEED_ADMIN_PASSWORD
 
-    const hashedPassword = await bcrypt.hash("Admin@123", 12)
+    if (!seedAdminEmail || !seedAdminPassword) {
+        console.log("ℹ️ SEED_ADMIN_EMAIL or SEED_ADMIN_PASSWORD not set. Skipping admin bootstrap.")
+    } else {
+        if (seedAdminPassword.length < 12) {
+            throw new Error("SEED_ADMIN_PASSWORD must be at least 12 characters")
+        }
+        console.log("Configuring bootstrap admin user...")
+        const hashedPassword = await bcrypt.hash(seedAdminPassword, 12)
 
-    const adminUser = await prisma.user.upsert({
-        where: { email: "admin@roproacademy.com" },
-        update: {},
-        create: {
-            email: "admin@roproacademy.com",
-            password: hashedPassword,
-            role: "ADMIN",
-            status: "ACTIVE",
-            emailVerified: new Date(),
-            admin: {
-                create: {
-                    fullName: "System Administrator",
-                    phone: "+91-9999999999",
-                    permissions: JSON.stringify({
-                        users: ["create", "read", "update", "delete"],
-                        students: ["create", "read", "update", "delete"],
-                        coaches: ["create", "read", "update", "delete"],
-                        academies: ["create", "read", "update", "delete"],
-                        events: ["create", "read", "update", "delete"],
-                        fees: ["create", "read", "update", "delete"],
-                        reports: ["read"],
-                        settings: ["read", "update"],
-                    }),
+        const adminUser = await prisma.user.upsert({
+            where: { email: seedAdminEmail.toLowerCase().trim() },
+            update: {},
+            create: {
+                email: seedAdminEmail.toLowerCase().trim(),
+                password: hashedPassword,
+                role: "ADMIN",
+                status: "ACTIVE",
+                emailVerified: new Date(),
+                admin: {
+                    create: {
+                        fullName: "System Administrator",
+                        phone: "+91-9999999999",
+                        permissions: JSON.stringify({
+                            users: ["create", "read", "update", "delete"],
+                            students: ["create", "read", "update", "delete"],
+                            coaches: ["create", "read", "update", "delete"],
+                            academies: ["create", "read", "update", "delete"],
+                            events: ["create", "read", "update", "delete"],
+                            fees: ["create", "read", "update", "delete"],
+                            reports: ["read"],
+                            settings: ["read", "update"],
+                        }),
+                    },
                 },
             },
-        },
-    })
+        })
 
-    console.log(`✅ Admin user created: ${adminUser.email}`)
-
-    // ============================================
-    // 1B. CREATE DEMO COACH USER
-    // ============================================
-    console.log("Creating demo coach user...")
-
-    const coachPassword = await bcrypt.hash("Coach@123", 12)
-
-    const coachUser = await prisma.user.upsert({
-        where: { email: "coach@roproacademy.com" },
-        update: {},
-        create: {
-            email: "coach@roproacademy.com",
-            password: coachPassword,
-            role: "COACH",
-            status: "ACTIVE",
-            emailVerified: new Date(),
-            coach: {
-                create: {
-                    coachId: "COACH-DEMO-001",
-                    fullName: "Demo Coach",
-                    phone: "+91-8888888888",
-                    primarySpecialization: "FITNESS",
-                    experienceYears: 7,
-                    coachingYears: 5,
-                    certifications: JSON.stringify(["National Level Certified Coach", "First Aid Certified", "Child Safety Training"]),
-                    qualifications: "Experienced rope skipping coach with passion for teaching students of all ages. Specializing in both competitive and recreational training.",
-                },
-            },
-        },
-    })
-
-    console.log(`✅ Demo coach created: ${coachUser.email}`)
-
-    // ============================================
-    // 1C. CREATE DEMO STUDENT USER
-    // ============================================
-    console.log("Creating demo student user...")
-
-    const studentPassword = await bcrypt.hash("Student@123", 12)
-
-    const studentUser = await prisma.user.upsert({
-        where: { email: "student@roproacademy.com" },
-        update: {},
-        create: {
-            email: "student@roproacademy.com",
-            password: studentPassword,
-            role: "STUDENT",
-            status: "ACTIVE",
-            emailVerified: new Date(),
-            student: {
-                create: {
-                    studentId: "STU-DEMO-001",
-                    fullName: "Demo Student",
-                    dateOfBirth: new Date("2012-05-15"),
-                    gender: "MALE",
-                    phone: "+91-7777777777",
-                    schoolName: "Demo Public School",
-                    parentName: "Demo Parent",
-                    parentPhone: "+91-9876543210",
-                    parentEmail: "parent@example.com",
-                    bloodGroup: "O+",
-                    emergencyContact: "Demo Parent - 9876543210",
-                    skillLevel: "BEGINNER",
-                },
-            },
-        },
-    })
-
-    console.log(`✅ Demo student created: ${studentUser.email}`)
-
+        console.log(`✅ Admin user configured: ${adminUser.email}`)
+    }
     // ============================================
     // 2. CREATE ACADEMIES (4 LOCATIONS)
     // ============================================
@@ -396,13 +339,10 @@ async function main() {
     console.log("🎉 Database seeding completed successfully!")
     console.log("")
     console.log("📋 Summary:")
-    console.log("   - 1 Admin user (admin@roproacademy.com / Admin@123)")
-    console.log("   - 1 Demo Coach (coach@roproacademy.com / Coach@123)")
-    console.log("   - 1 Demo Student (student@roproacademy.com / Student@123)")
+    console.log(`   - Bootstrap Admin: ${process.env.SEED_ADMIN_EMAIL || "Skipped (no env)"}`)
     console.log("   - 4 Academy locations")
     console.log("   - 4 Sample batches")
-    console.log("   - 6 System settings")
-}
+    console.log("   - 6 System settings")}
 
 main()
     .catch((e) => {

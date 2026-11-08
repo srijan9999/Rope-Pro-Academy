@@ -4,13 +4,11 @@ import { prisma } from "@/lib/prisma"
 export async function POST(request: Request) {
     try {
         const body = await request.json()
-        console.log("📩 QUICK LEAD - Received Data:", body)
 
         const { name, phone, age, preferredLocation } = body
 
         // Validate required fields
         if (!name || !phone || !age || !preferredLocation) {
-            console.log("❌ QUICK LEAD - Validation failed: Missing required fields")
             return NextResponse.json(
                 { error: "All fields are required." },
                 { status: 400 }
@@ -19,14 +17,12 @@ export async function POST(request: Request) {
 
         // Validate phone number (basic check)
         if (phone.length < 10) {
-            console.log("❌ QUICK LEAD - Validation failed: Invalid phone")
             return NextResponse.json(
                 { error: "Please enter a valid phone number." },
                 { status: 400 }
             )
         }
 
-        console.log("✅ QUICK LEAD - Validation passed, saving to database...")
 
         // Create the lead in database
         const lead = await prisma.quickLead.create({
@@ -39,7 +35,6 @@ export async function POST(request: Request) {
             },
         })
 
-        console.log("✅ QUICK LEAD - Saved successfully! ID:", lead.id)
 
         return NextResponse.json(
             {

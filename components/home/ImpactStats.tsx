@@ -11,8 +11,8 @@ export function ImpactStats() {
     const prefersReducedMotion = useReducedMotion()
 
     // Default to final numbers for SSR / static render
-    const [studentsCount, setStudentsCount] = useState(siteConfig.stats.studentsTrained)
-    const [playersCount, setPlayersCount] = useState(siteConfig.stats.internationalPlayers)
+    const [studentsCount, setStudentsCount] = useState<number>(siteConfig.stats.studentsTrained)
+    const [playersCount, setPlayersCount] = useState<number>(siteConfig.stats.internationalPlayers)
     const hasAnimatedRef = useRef(false)
 
     useEffect(() => {

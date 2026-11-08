@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { getServerSession } from "next-auth"
+import { requireRole } from "@/lib/guards"
 import { prisma } from "@/lib/prisma"
 import { decrypt, encrypt } from "@/lib/encryption"
 import bcrypt from "bcrypt"
@@ -10,17 +10,9 @@ import bcrypt from "bcrypt"
  */
 export async function GET() {
     try {
-        // Get the current session
-        const session = await getServerSession()
-
-        if (!session?.user?.email) {
-            return NextResponse.json(
-                { error: "Unauthorized - Please login" },
-                { status: 401 }
-            )
-        }
-
-        console.log("📋 Fetching profile for:", session.user.email)
+        const guard = await requireRole("STUDENT")
+        if (guard.response) return guard.response
+        const { session } = guard
 
         // Find user and their student profile
         const user = await prisma.user.findUnique({
@@ -81,7 +73,6 @@ export async function GET() {
             skillLevel: student.skillLevel,
         }
 
-        console.log("✅ Profile fetched successfully for:", student.studentId)
 
         return NextResponse.json({
             success: true,
@@ -103,19 +94,11 @@ export async function GET() {
  */
 export async function PATCH(request: Request) {
     try {
-        // Get the current session
-        const session = await getServerSession()
-
-        if (!session?.user?.email) {
-            return NextResponse.json(
-                { error: "Unauthorized - Please login" },
-                { status: 401 }
-            )
-        }
+        const guard = await requireRole("STUDENT")
+        if (guard.response) return guard.response
+        const { session } = guard
 
         const body = await request.json()
-        console.log("📝 Updating profile for:", session.user.email)
-        console.log("📦 Update data:", Object.keys(body))
 
         // Find user
         const user = await prisma.user.findUnique({
@@ -193,7 +176,6 @@ export async function PATCH(request: Request) {
                 )
             }
 
-            console.log("   ✓ Current password verified")
         }
 
         // Update in transaction
@@ -205,7 +187,6 @@ export async function PATCH(request: Request) {
                     where: { id: user.id },
                     data: { password: hashedPassword }
                 })
-                console.log("   ✓ Password updated")
             }
 
             // Build student update data
@@ -246,11 +227,9 @@ export async function PATCH(request: Request) {
                     where: { id: student.id },
                     data: studentUpdateData
                 })
-                console.log("   ✓ Student profile updated")
             }
         })
 
-        console.log("✅ Profile updated successfully")
 
         return NextResponse.json({
             success: true,

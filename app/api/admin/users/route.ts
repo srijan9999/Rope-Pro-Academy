@@ -56,7 +56,6 @@ export async function GET(request: NextRequest) {
 
         const { query, role, status, academy, page, limit, sortBy, sortOrder } = parseResult.data
 
-        console.log("👥 ADMIN USERS - Query params:", { query, role, status, academy, page, limit, sortBy, sortOrder })
 
         // 4. Build dynamic where clause
         const whereConditions: Prisma.UserWhereInput[] = []
@@ -222,7 +221,6 @@ export async function GET(request: NextRequest) {
             timestamp: new Date().toISOString()
         }
 
-        console.log(`✅ ADMIN USERS - Found ${totalCount} users, returning page ${page}/${totalPages}`)
 
         return NextResponse.json(response, { status: 200 })
 

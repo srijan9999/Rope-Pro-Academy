@@ -1,0 +1,253 @@
+"use client"
+
+import { useState, useEffect } from "react"
+import Link from "next/link"
+import { signIn, getSession } from "next-auth/react"
+import { getDashboardLink } from "@/lib/utils"
+import { UPDATE_PASSWORD_PATH } from "@/lib/auth-routes"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Loader2, AlertCircle } from "lucide-react"
+
+interface FieldErrors {
+    email: string
+    password: string
+}
+
+const LOGIN_ERROR_MESSAGES: Record<string, string> = {
+    PENDING_PAYMENT: "Your registration is awaiting payment. Please register again with the same email to continue to payment.",
+    PENDING_VERIFICATION: "Your payment is pending admin approval. You can sign in once it is approved.",
+    PAYMENT_REJECTED: "We could not verify your payment. Please register again with the same email to resubmit, or contact the academy.",
+    COACH_PENDING: "Your coach application is under review. You can sign in once it is approved.",
+    ACCOUNT_INACTIVE: "This account is not active. Please contact the academy.",
+    SERVICE_UNAVAILABLE: "Authentication service is temporarily unavailable. Please try again shortly.",
+    INVALID_CREDENTIALS: "Invalid credentials.",
+    CredentialsSignin: "Invalid credentials.",
+}
+
+export function LoginForm() {
+    const [activeTab, setActiveTab] = useState("player")
+    const [email, setEmail] = useState("")
+    const [password, setPassword] = useState("")
+    const [errors, setErrors] = useState<FieldErrors>({ email: "", password: "" })
+    const [submitError, setSubmitError] = useState<string | null>(null)
+    const [isLoading, setIsLoading] = useState(false)
+
+    // Sanitize any URL query error parameter (e.g. redirected by NextAuth)
+    useEffect(() => {
+        if (typeof window !== "undefined") {
+            const params = new URLSearchParams(window.location.search)
+            const errorParam = params.get("error")
+            if (errorParam) {
+                setSubmitError(LOGIN_ERROR_MESSAGES[errorParam] || "Invalid credentials.")
+            }
+        }
+    }, [])
+
+    // Clear field error when user types
+    const handleEmailChange = (value: string) => {
+        setEmail(value)
+        setErrors(prev => ({ ...prev, email: "" }))
+        setSubmitError(null)
+    }
+
+    const handlePasswordChange = (value: string) => {
+        setPassword(value)
+        setErrors(prev => ({ ...prev, password: "" }))
+        setSubmitError(null)
+    }
+
+    // Validate form before submission
+    const validateForm = (): boolean => {
+        const newErrors: FieldErrors = { email: "", password: "" }
+        let isValid = true
+
+        // Email validation
+        if (!email.trim()) {
+            newErrors.email = "Email is required"
+            isValid = false
+        } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+            newErrors.email = "Please enter a valid email address"
+            isValid = false
+        }
+
+        // Password validation
+        if (!password.trim()) {
+            newErrors.password = "Password is required"
+            isValid = false
+        } else if (password.length < 6) {
+            newErrors.password = "Password must be at least 6 characters"
+            isValid = false
+        }
+
+        setErrors(newErrors)
+        return isValid
+    }
+
+    // Handle login submission
+    const handleLogin = async (e: React.FormEvent) => {
+        e.preventDefault()
+
+        if (!validateForm()) return
+        if (isLoading) return // Prevent duplicate submissions
+
+        setIsLoading(true)
+        setSubmitError(null)
+
+        try {
+            const result = await signIn("credentials", {
+                redirect: false,
+                email: email.toLowerCase(),
+                password,
+            })
+
+            if (result?.error) {
+                const friendlyMessage = LOGIN_ERROR_MESSAGES[result.error] || "Invalid credentials."
+                setSubmitError(friendlyMessage)
+                setIsLoading(false)
+                return
+            }
+
+            if (result?.ok) {
+                // Fetch the actual session to get the real user role
+                const session = await getSession()
+
+                // Force password change on first login
+                if (session?.user?.mustChangePassword) {
+                    window.location.assign(UPDATE_PASSWORD_PATH)
+                    return
+                }
+
+                if (!session?.user?.role) {
+                    window.location.assign(`/dashboard/${activeTab}`)
+                    return
+                }
+
+                // Role-based redirect using the actual authenticated user's role
+                const dashboardUrl = getDashboardLink(session.user.role)
+                window.location.assign(dashboardUrl)
+                return
+            }
+
+            // If we get here, something unexpected happened
+            setSubmitError("An unexpected error occurred. Please try again.")
+            setIsLoading(false)
+
+        } catch {
+            setSubmitError("Network error. Please check your connection and try again.")
+            setIsLoading(false)
+        }
+    }
+
+    // Error display component
+    const FieldError = ({ message }: { message: string }) => {
+        if (!message) return null
+        return <p className="text-sm text-red-500 mt-1">{message}</p>
+    }
+
+    return (
+        <div className="min-h-screen flex items-center justify-center bg-zinc-50 py-12 dark:bg-black px-4">
+            <Card className="w-full max-w-md">
+                <CardHeader className="space-y-1">
+                    <CardTitle className="text-2xl font-bold uppercase text-center">Login</CardTitle>
+                    <CardDescription className="text-center">
+                        Enter your credentials to access your dashboard
+                    </CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+                        <TabsList className="grid w-full grid-cols-3 mb-4">
+                            <TabsTrigger value="player">Player</TabsTrigger>
+                            <TabsTrigger value="coach">Coach</TabsTrigger>
+                            <TabsTrigger value="admin">Admin</TabsTrigger>
+                        </TabsList>
+
+                        {["player", "coach", "admin"].map((role) => (
+                            <TabsContent key={role} value={role}>
+                                <div className="space-y-4">
+                                    <form onSubmit={handleLogin} className="space-y-4">
+                                        {/* Error Alert */}
+                                        {submitError && (
+                                             <div role="alert" className="rounded-lg border border-red-200 bg-red-50 p-4 text-red-700 dark:border-red-900 dark:bg-red-950 dark:text-red-400">
+                                                <div className="flex items-start gap-2">
+                                                    <AlertCircle className="h-5 w-5 flex-shrink-0 mt-0.5" />
+                                                    <div className="space-y-1">
+                                                        <p>{submitError}</p>
+                                                        {submitError.includes("Invalid email or password") && (
+                                                            <p className="text-sm opacity-80">
+                                                                Forgot your password?{" "}
+                                                                <Link href="#" className="underline">
+                                                                    Reset it here
+                                                                </Link>
+                                                            </p>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        )}
+
+                                        <div className="space-y-2">
+                                            <Label>Email <span className="text-red-500">*</span></Label>
+                                            <Input
+                                                name="email"
+                                                type="email"
+                                                autoComplete="username"
+                                                placeholder={role === "admin" ? "admin@example.com" : "user@example.com"}
+                                                value={email}
+                                                onChange={(e) => handleEmailChange(e.target.value)}
+                                                className={errors.email ? "border-red-500" : ""}
+                                                disabled={isLoading}
+                                            />
+                                            <FieldError message={errors.email} />
+                                        </div>
+
+                                        <div className="space-y-2">
+                                            <Label>Password <span className="text-red-500">*</span></Label>
+                                            <Input
+                                                name="password"
+                                                type="password"
+                                                autoComplete="current-password"
+                                                placeholder="Enter your password"
+                                                value={password}
+                                                onChange={(e) => handlePasswordChange(e.target.value)}
+                                                className={errors.password ? "border-red-500" : ""}
+                                                disabled={isLoading}
+                                            />
+                                            <FieldError message={errors.password} />
+                                        </div>
+
+                                        <Button
+                                            type="submit"
+                                            className="w-full bg-primary hover:bg-red-700 font-bold uppercase"
+                                            disabled={isLoading}
+                                        >
+                                            {isLoading ? (
+                                                <>
+                                                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                                    Logging in...
+                                                </>
+                                            ) : (
+                                                `Login as ${role}`
+                                            )}
+                                        </Button>
+                                    </form>
+                                </div>
+                            </TabsContent>
+                        ))}
+                    </Tabs>
+                </CardContent>
+                <CardFooter className="flex flex-col gap-2 text-center text-sm">
+                    <Link href="/register/player" className="text-primary hover:underline">
+                        Don&apos;t have an account? Register Now
+                    </Link>
+                    <Link href="#" className="text-muted-foreground hover:underline">
+                        Forgot Password?
+                    </Link>
+                </CardFooter>
+            </Card>
+        </div>
+    )
+}

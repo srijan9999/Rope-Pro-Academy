@@ -1,8 +1,12 @@
 import { NextResponse } from "next/server"
 import type { NextRequest } from "next/server"
 import { getToken } from "next-auth/jwt"
-import { DASHBOARD_PATHS, isRole } from "@/lib/roles"
+import { isRole } from "@/lib/roles"
 import { UPDATE_PASSWORD_PATH, getRoleHome } from "@/lib/auth-routes"
+
+function matchesPath(pathname: string, base: string): boolean {
+    return pathname === base || pathname.startsWith(base + "/")
+}
 
 export async function middleware(request: NextRequest) {
     const token = await getToken({
@@ -12,59 +16,60 @@ export async function middleware(request: NextRequest) {
 
     const { pathname } = request.nextUrl
     const mustChange = token?.mustChangePassword === true
+    const isAuthRoute = matchesPath(pathname, "/login") || matchesPath(pathname, "/register")
+    const isDashboardRoute = matchesPath(pathname, "/dashboard")
 
-    // 1. Force password change interception
-    if (token) {
-        // Flagged users can ONLY see /update-password
-        if (mustChange && pathname !== UPDATE_PASSWORD_PATH) {
-            return NextResponse.redirect(new URL(UPDATE_PASSWORD_PATH, request.url))
-        }
-
-        // Unflagged users have no business on the forced-change page
-        if (!mustChange && pathname === UPDATE_PASSWORD_PATH) {
-            return NextResponse.redirect(new URL(getRoleHome(token?.role as string), request.url))
-        }
-    } else {
-        // Unauthenticated access to /update-password redirects to login
-        if (pathname === UPDATE_PASSWORD_PATH) {
+    // 1. Unauthenticated users trying to access protected routes
+    if (!token) {
+        if (isDashboardRoute || pathname === UPDATE_PASSWORD_PATH) {
             const loginUrl = new URL("/login", request.url)
             loginUrl.searchParams.set("callbackUrl", pathname)
             return NextResponse.redirect(loginUrl)
         }
+        return NextResponse.next()
     }
 
-    // Check if user is trying to access the home page while logged in
-    if (pathname === "/" && token) {
-        if (mustChange) {
+    // 2. Validate token role (fail closed to /login if unknown)
+    const role = token.role as string
+    if (!role || !isRole(role)) {
+        return NextResponse.redirect(new URL("/login", request.url))
+    }
+
+    // 3. Flagged users (mustChangePassword === true)
+    if (mustChange) {
+        // Intercept only dashboard and auth pages; public pages stay accessible
+        if (pathname !== UPDATE_PASSWORD_PATH && (isDashboardRoute || isAuthRoute)) {
             return NextResponse.redirect(new URL(UPDATE_PASSWORD_PATH, request.url))
         }
-        const role = token.role as string
-        let dashboardUrl = DASHBOARD_PATHS.STUDENT // default
-        if (role && isRole(role)) {
-            dashboardUrl = DASHBOARD_PATHS[role]
-        }
-        return NextResponse.redirect(new URL(dashboardUrl, request.url))
+        return NextResponse.next()
     }
 
-    // Check if user is trying to access dashboard routes without being logged in
-    if (pathname.startsWith("/dashboard") && !token) {
-        const loginUrl = new URL("/login", request.url)
-        loginUrl.searchParams.set("callbackUrl", pathname)
-        return NextResponse.redirect(loginUrl)
+    // 4. Unflagged users should not access /update-password
+    if (pathname === UPDATE_PASSWORD_PATH) {
+        return NextResponse.redirect(new URL(getRoleHome(role), request.url))
     }
 
-    // Role-based dashboard access control
-    if (token) {
-        const role = token.role as string
+    // 5. Note: Signed-in redirects on /login and /register are handled server-side
+    // in their respective page components using revocation-aware getServerSession,
+    // preventing infinite redirect loops for revoked sessions (SEC-16b).
 
-        if (pathname.startsWith("/dashboard/admin") && role !== "ADMIN") {
-            return NextResponse.redirect(new URL("/login", request.url))
+    // 6. Role-based dashboard access control with exact-or-slash boundaries
+    if (isDashboardRoute) {
+        // Admin preview of ID cards in coach and player portals
+        const isIdCardPreview =
+            matchesPath(pathname, "/dashboard/coach/id-card") ||
+            matchesPath(pathname, "/dashboard/player/id-card")
+
+        if (matchesPath(pathname, "/dashboard/admin") && role !== "ADMIN") {
+            return NextResponse.redirect(new URL(getRoleHome(role), request.url))
         }
-        if (pathname.startsWith("/dashboard/coach") && role !== "COACH" && role !== "ADMIN") {
-            return NextResponse.redirect(new URL("/login", request.url))
+
+        if (matchesPath(pathname, "/dashboard/coach") && role !== "COACH" && !(role === "ADMIN" && isIdCardPreview)) {
+            return NextResponse.redirect(new URL(getRoleHome(role), request.url))
         }
-        if (pathname.startsWith("/dashboard/player") && role !== "STUDENT" && role !== "ADMIN") {
-            return NextResponse.redirect(new URL("/login", request.url))
+
+        if (matchesPath(pathname, "/dashboard/player") && role !== "STUDENT" && !(role === "ADMIN" && isIdCardPreview)) {
+            return NextResponse.redirect(new URL(getRoleHome(role), request.url))
         }
     }
 
@@ -73,14 +78,6 @@ export async function middleware(request: NextRequest) {
 
 export const config = {
     matcher: [
-        /*
-         * Match all request paths except for the ones starting with:
-         * - api (API routes)
-         * - _next/static (static files)
-         * - _next/image (image optimization files)
-         * - favicon.ico (favicon file)
-         * - public folder files
-         */
         "/((?!api|_next/static|_next/image|favicon.ico|.*\\.png$|.*\\.jpg$|.*\\.svg$).*)",
     ],
 }

@@ -4,13 +4,11 @@ import { prisma } from "@/lib/prisma"
 export async function POST(request: Request) {
     try {
         const body = await request.json()
-        console.log("📩 CONTACT FORM - Received Data:", body)
 
         const { firstName, lastName, email, phone, message } = body
 
         // Validate required fields
         if (!firstName || !email || !message) {
-            console.log("❌ CONTACT FORM - Validation failed: Missing required fields")
             return NextResponse.json(
                 { success: false, error: "First name, email, and message are required." },
                 { status: 400 }
@@ -20,14 +18,12 @@ export async function POST(request: Request) {
         // Basic email validation
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
         if (!emailRegex.test(email)) {
-            console.log("❌ CONTACT FORM - Validation failed: Invalid email format")
             return NextResponse.json(
                 { success: false, error: "Please enter a valid email address." },
                 { status: 400 }
             )
         }
 
-        console.log("✅ CONTACT FORM - Validation passed, saving to database...")
 
         // Create the contact message in database
         const contactMessage = await prisma.contactMessage.create({
@@ -41,7 +37,6 @@ export async function POST(request: Request) {
             },
         })
 
-        console.log("✅ CONTACT FORM - Saved successfully! ID:", contactMessage.id)
 
         return NextResponse.json(
             {

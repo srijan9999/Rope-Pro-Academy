@@ -1,3 +1,4 @@
+// Not callable over HTTP. Add requireRole before wiring this up.
 import { prisma } from '@/lib/prisma'
 
 interface ProfileUpdateData {

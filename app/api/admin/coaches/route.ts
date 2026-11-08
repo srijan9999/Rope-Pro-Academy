@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
-import bcrypt from "bcrypt"
 import { Prisma } from "@prisma/client"
 import { z } from "zod"
 import { authOptions, generateCoachId } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
+import { hashDefaultPassword } from "@/lib/default-password"
 
 const createCoachSchema = z.object({
     fullName: z.string().min(2, "Full name must be at least 2 characters"),
@@ -34,9 +34,8 @@ export async function POST(req: Request) {
     }
     const { fullName, email, phone, resumeUrl } = parsed.data
 
-    // 3. Hash the default password (never stored or returned in plaintext)
-    const defaultPassword = process.env.DEFAULT_TEMP_PASSWORD || "Ropepro@112"
-    const hashedPassword = await bcrypt.hash(defaultPassword, 12)
+    // 3. Hash the default password (throws if DEFAULT_TEMP_PASSWORD is not set)
+    const hashedPassword = await hashDefaultPassword()
 
     // 4. Create user + coach profile atomically
     try {

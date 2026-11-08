@@ -1,0 +1,137 @@
+/**
+ * Reset User Password Script
+ *
+ * Safely resets a specific user's password to DEFAULT_TEMP_PASSWORD (cost 12)
+ * and flags them with mustChangePassword = true.
+ *
+ * SAFETY REQUIREMENTS:
+ * - Requires CONFIRM_DB_HOST matching the database host in DATABASE_URL.
+ * - Refuses to touch an ADMIN account without the explicit --allow-admin flag.
+ * - Requires DEFAULT_TEMP_PASSWORD env var (>= 8 characters).
+ * - Masks email addresses in output.
+ *
+ * Usage:
+ *   CONFIRM_DB_HOST="ep-xxxx.neon.tech" DEFAULT_TEMP_PASSWORD="SecureTempPassword123!" npx tsx scripts/reset-user-password.ts <userId-or-email> [--allow-admin]
+ */
+
+import { PrismaClient } from "@prisma/client"
+import bcrypt from "bcrypt"
+
+function maskEmail(email: string): string {
+    const atIndex = email.indexOf("@")
+    if (atIndex === -1) return "***"
+    const local = email.slice(0, atIndex)
+    const domain = email.slice(atIndex + 1)
+    const dotIndex = domain.lastIndexOf(".")
+    const domName = dotIndex === -1 ? domain : domain.slice(0, dotIndex)
+    const tld = dotIndex === -1 ? "" : domain.slice(dotIndex)
+
+    const maskedLocal = local.length <= 2 ? local[0] + "***" : local.slice(0, 2) + "***"
+    const maskedDom = domName.length <= 1 ? domName[0] + "***" : domName[0] + "****"
+    return `${maskedLocal}@${maskedDom}${tld}`
+}
+
+function getNormalizedEndpointId(dbUrlStr: string): string {
+    const match = dbUrlStr.match(/ep-[a-z0-9-]+/)
+    if (!match) return ""
+    return match[0].replace(/-pooler$/, "")
+}
+
+function verifyHostGuard(): void {
+    const dbUrlStr = process.env.DATABASE_URL || process.env.LIVE_DATABASE_URL
+    if (!dbUrlStr) {
+        console.error("❌ ERROR: Neither DATABASE_URL nor LIVE_DATABASE_URL is set.")
+        process.exit(1)
+    }
+
+    const actualEndpoint = getNormalizedEndpointId(dbUrlStr)
+    const confirmed = (process.env.CONFIRM_ENDPOINT_ID || process.env.CONFIRM_DB_HOST)?.trim()
+    const confirmedNorm = confirmed ? getNormalizedEndpointId(confirmed) || confirmed : ""
+
+    if (!confirmedNorm) {
+        console.error(
+            `❌ SAFETY CHECK FAILED: CONFIRM_ENDPOINT_ID is not set.\n` +
+            `Please run with CONFIRM_ENDPOINT_ID="${actualEndpoint}" to verify target database.`
+        )
+        process.exit(1)
+    }
+
+    if (confirmedNorm !== actualEndpoint) {
+        console.error(
+            `❌ SAFETY CHECK FAILED: CONFIRM_ENDPOINT_ID ('${confirmedNorm}') does not match actual endpoint ('${actualEndpoint}'). Aborting.`
+        )
+        process.exit(1)
+    }
+
+    console.log(`🛡️ Target endpoint verified: ${actualEndpoint}`)
+}
+
+async function main() {
+    verifyHostGuard()
+
+    const args = process.argv.slice(2)
+    const allowAdmin = args.includes("--allow-admin")
+    const targetIdentifier = args.find((a) => !a.startsWith("--"))?.trim()
+
+    if (!targetIdentifier) {
+        console.error("❌ Usage: npx tsx scripts/reset-user-password.ts <userId-or-email> [--allow-admin]")
+        process.exit(1)
+    }
+
+    const tempPassword = process.env.DEFAULT_TEMP_PASSWORD?.trim()
+    if (!tempPassword || tempPassword.length < 8) {
+        console.error("❌ ERROR: DEFAULT_TEMP_PASSWORD environment variable must be set and at least 8 characters.")
+        process.exit(1)
+    }
+
+    const prisma = new PrismaClient()
+
+    try {
+        const user = await prisma.user.findFirst({
+            where: {
+                OR: [
+                    { id: targetIdentifier },
+                    { email: targetIdentifier.toLowerCase() },
+                ],
+            },
+        })
+
+        if (!user) {
+            console.error(`❌ User not found for identifier: ${targetIdentifier}`)
+            process.exit(1)
+        }
+
+        if (user.role === "ADMIN" && !allowAdmin) {
+            console.error(
+                `⛔ REFUSED: Target user ${user.id} has role ADMIN.\n` +
+                `Resetting an ADMIN password requires passing the explicit --allow-admin flag.`
+            )
+            process.exit(1)
+        }
+
+        const hashedPassword = await bcrypt.hash(tempPassword, 12)
+
+        const updated = await prisma.user.update({
+            where: { id: user.id },
+            data: {
+                password: hashedPassword,
+                mustChangePassword: true,
+            },
+        })
+
+        console.log("✅ Password successfully reset!")
+        console.log(`User ID:             ${updated.id}`)
+        console.log(`Masked Email:        ${maskEmail(updated.email)}`)
+        console.log(`Role:                ${updated.role}`)
+        console.log(`Status:              ${updated.status}`)
+        console.log(`mustChangePassword:  ${updated.mustChangePassword}`)
+        console.log("Password hash has been updated with bcrypt cost 12.")
+    } finally {
+        await prisma.$disconnect()
+    }
+}
+
+main().catch((err) => {
+    console.error("❌ Unexpected error:", err.message)
+    process.exit(1)
+})

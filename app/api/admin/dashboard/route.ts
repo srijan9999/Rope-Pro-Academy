@@ -44,7 +44,6 @@ export async function GET() {
             )
         }
 
-        console.log("📊 ADMIN DASHBOARD - Fetching stats for:", session.user.email)
 
         // 4. Execute parallel database queries for performance
         const [
@@ -184,7 +183,6 @@ export async function GET() {
             timestamp: new Date().toISOString()
         }
 
-        console.log("✅ ADMIN DASHBOARD - Stats fetched successfully")
 
         return NextResponse.json(response, { status: 200 })
 

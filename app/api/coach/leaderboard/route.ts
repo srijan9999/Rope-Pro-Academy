@@ -1,19 +1,13 @@
 import { NextResponse } from 'next/server'
 import { prisma } from '@/lib/prisma'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
+import { requireRole } from '@/lib/guards'
 
 // GET /api/coach/leaderboard - Get attendance leaderboard for a batch
 export async function GET(request: Request) {
     try {
-        const session = await getServerSession(authOptions)
-
-        if (!session?.user) {
-            return NextResponse.json(
-                { success: false, error: { code: 'UNAUTHORIZED', message: 'Not authenticated' } },
-                { status: 401 }
-            )
-        }
+        const guard = await requireRole('COACH', 'ADMIN')
+        if (guard.response) return guard.response
+        const { session } = guard
 
         const { searchParams } = new URL(request.url)
         const batchId = searchParams.get('batchId')
@@ -25,6 +19,36 @@ export async function GET(request: Request) {
                 { success: false, error: { code: 'BAD_REQUEST', message: 'Batch ID required' } },
                 { status: 400 }
             )
+        }
+
+        // Ownership check: Coaches may only view batches assigned to them; Admins may view any batch
+        if (session.user.role === 'COACH') {
+            const coach = await prisma.coach.findUnique({
+                where: { userId: session.user.id },
+                select: { id: true },
+            })
+
+            if (!coach) {
+                return NextResponse.json(
+                    { success: false, error: { code: 'FORBIDDEN', message: 'Coach profile not found' } },
+                    { status: 403 }
+                )
+            }
+
+            const batch = await prisma.batch.findFirst({
+                where: {
+                    id: batchId,
+                    coachId: coach.id,
+                },
+                select: { id: true },
+            })
+
+            if (!batch) {
+                return NextResponse.json(
+                    { success: false, error: { code: 'FORBIDDEN', message: 'Access denied: not authorized for this batch' } },
+                    { status: 403 }
+                )
+            }
         }
 
         // Get all students in the batch with their attendance stats

@@ -1,3 +1,4 @@
+// Not callable over HTTP. Add requireRole before wiring this up.
 import { prisma } from '@/lib/prisma'
 
 interface LeaveRequestData {
@@ -66,9 +67,10 @@ export async function handleLeaveApproval(
             try {
                 await prisma.attendance.upsert({
                     where: {
-                        studentId_date: {
+                        studentId_date_batchId: {
                             studentId: studentId,
-                            date: date
+                            date: date,
+                            batchId: user.student!.batchId,
                         }
                     },
                     update: {

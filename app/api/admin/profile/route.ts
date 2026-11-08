@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { getServerSession } from "next-auth"
+import { requireRole } from "@/lib/guards"
 import { prisma } from "@/lib/prisma"
 import bcrypt from "bcrypt"
 
@@ -9,16 +9,9 @@ import bcrypt from "bcrypt"
  */
 export async function GET() {
     try {
-        const session = await getServerSession()
-
-        if (!session?.user?.email) {
-            return NextResponse.json(
-                { error: "Unauthorized - Please login" },
-                { status: 401 }
-            )
-        }
-
-        console.log("📋 Fetching admin profile for:", session.user.email)
+        const guard = await requireRole("ADMIN")
+        if (guard.response) return guard.response
+        const { session } = guard
 
         // Find user
         const user = await prisma.user.findUnique({
@@ -39,14 +32,6 @@ export async function GET() {
             )
         }
 
-        // Verify admin role
-        if (user.role !== "ADMIN") {
-            return NextResponse.json(
-                { error: "Access denied - Admin only" },
-                { status: 403 }
-            )
-        }
-
         // Get admin profile
         const admin = await prisma.admin.findUnique({
             where: { userId: user.id },
@@ -63,7 +48,6 @@ export async function GET() {
             phone: admin?.phone || "",
         }
 
-        console.log("✅ Admin profile fetched successfully")
 
         return NextResponse.json({
             success: true,
@@ -85,17 +69,11 @@ export async function GET() {
  */
 export async function PATCH(request: Request) {
     try {
-        const session = await getServerSession()
-
-        if (!session?.user?.email) {
-            return NextResponse.json(
-                { error: "Unauthorized - Please login" },
-                { status: 401 }
-            )
-        }
+        const guard = await requireRole("ADMIN")
+        if (guard.response) return guard.response
+        const { session } = guard
 
         const body = await request.json()
-        console.log("📝 Updating admin profile for:", session.user.email)
 
         // Find user
         const user = await prisma.user.findUnique({
@@ -106,14 +84,6 @@ export async function PATCH(request: Request) {
             return NextResponse.json(
                 { error: "User not found" },
                 { status: 404 }
-            )
-        }
-
-        // Verify admin role
-        if (user.role !== "ADMIN") {
-            return NextResponse.json(
-                { error: "Access denied - Admin only" },
-                { status: 403 }
             )
         }
 
@@ -154,7 +124,6 @@ export async function PATCH(request: Request) {
                 )
             }
 
-            console.log("   ✓ Current password verified")
         }
 
         // Update in transaction
@@ -166,7 +135,6 @@ export async function PATCH(request: Request) {
                     where: { id: user.id },
                     data: { password: hashedPassword }
                 })
-                console.log("   ✓ Password updated")
             }
 
             // Check if admin profile exists
@@ -196,10 +164,8 @@ export async function PATCH(request: Request) {
                 })
             }
 
-            console.log("   ✓ Admin profile updated")
         })
 
-        console.log("✅ Admin profile updated successfully")
 
         return NextResponse.json({
             success: true,
