@@ -31,6 +31,12 @@ function maskEmail(email: string): string {
     return `${maskedLocal}@${maskedDom}${tld}`
 }
 
+function getNormalizedEndpointId(dbUrlStr: string): string {
+    const match = dbUrlStr.match(/ep-[a-z0-9-]+/)
+    if (!match) return ""
+    return match[0].replace(/-pooler$/, "")
+}
+
 function verifyHostGuard(): void {
     const dbUrlStr = process.env.DATABASE_URL
     if (!dbUrlStr) {
@@ -38,30 +44,26 @@ function verifyHostGuard(): void {
         process.exit(1)
     }
 
-    let actualHost = ""
-    try {
-        const parsed = new URL(dbUrlStr)
-        actualHost = parsed.host
-    } catch {
-        console.error("❌ ERROR: Failed to parse host from DATABASE_URL.")
-        process.exit(1)
-    }
+    const actualEndpoint = getNormalizedEndpointId(dbUrlStr)
+    const confirmed = (process.env.CONFIRM_ENDPOINT_ID || process.env.CONFIRM_DB_HOST)?.trim()
+    const confirmedNorm = confirmed ? getNormalizedEndpointId(confirmed) || confirmed : ""
 
-    const confirmHost = process.env.CONFIRM_DB_HOST?.trim()
-    if (!confirmHost) {
+    if (!confirmedNorm) {
         console.error(
-            `❌ SAFETY CHECK FAILED: CONFIRM_DB_HOST is not set.\n` +
-            `Please run with CONFIRM_DB_HOST="${actualHost}" to verify target database.`
+            `❌ SAFETY CHECK FAILED: CONFIRM_ENDPOINT_ID is not set.\n` +
+            `Please run with CONFIRM_ENDPOINT_ID="${actualEndpoint}" to verify target database.`
         )
         process.exit(1)
     }
 
-    if (confirmHost !== actualHost) {
+    if (confirmedNorm !== actualEndpoint) {
         console.error(
-            `❌ SAFETY CHECK FAILED: CONFIRM_DB_HOST ('${confirmHost}') does not match actual database host ('${actualHost}'). Aborting.`
+            `❌ SAFETY CHECK FAILED: CONFIRM_ENDPOINT_ID ('${confirmedNorm}') does not match actual endpoint ('${actualEndpoint}'). Aborting.`
         )
         process.exit(1)
     }
+
+    console.log(`🛡️ Target endpoint verified: ${actualEndpoint}`)
 }
 
 async function main() {
