@@ -4,28 +4,33 @@ let isAsserted = false
 
 /**
  * Validates critical environment variables at startup.
- * Skips validation during 'next build' (NEXT_PHASE === "phase-production-build").
- * Enforces:
- * - DATABASE_URL present
- * - NEXTAUTH_SECRET >= 32 characters
- * - NEXTAUTH_URL valid and uses https:// (allows http:// for localhost/127.0.0.1)
- * - DEFAULT_TEMP_PASSWORD >= 8 characters
+ * Skips validation during local 'next build' and CI without secrets (VERCEL !== "1").
+ * When building on Vercel (VERCEL === "1"), executes full validation to fail broken builds before deployment.
  *
- * Never prints variable values or lengths in error messages.
+ * Enforces:
+ * - LIVE_DATABASE_URL present (matching prisma/schema.prisma)
+ * - NEXTAUTH_SECRET >= 32 characters
+ * - NEXTAUTH_URL valid and uses https:// in production (allows http:// for localhost/127.0.0.1)
+ * - DEFAULT_TEMP_PASSWORD >= 8 characters
+ * - ENCRYPTION_KEY 64-char hex in production
+ *
+ * Never prints variable values or sensitive strings in error messages.
  */
 export function assertEnv(): void {
     if (isAsserted) return
 
-    if (process.env.NEXT_PHASE === "phase-production-build") {
+    // In build phase, only validate if running on Vercel where production/preview env vars are configured.
+    // Local development and CI builds without secrets bypass validation during 'next build'.
+    if (process.env.NEXT_PHASE === "phase-production-build" && process.env.VERCEL !== "1") {
         return
     }
 
     const errors: string[] = []
 
-    // 1. DATABASE_URL (or LIVE_DATABASE_URL)
-    const dbUrl = (process.env.DATABASE_URL || process.env.LIVE_DATABASE_URL)?.trim()
+    // 1. LIVE_DATABASE_URL (matches prisma/schema.prisma)
+    const dbUrl = process.env.LIVE_DATABASE_URL?.trim()
     if (!dbUrl) {
-        errors.push("DATABASE_URL (or LIVE_DATABASE_URL) is missing or empty.")
+        errors.push("LIVE_DATABASE_URL is missing or empty.")
     }
 
     // 2. NEXTAUTH_SECRET (>= 32 chars)
@@ -35,10 +40,14 @@ export function assertEnv(): void {
     }
 
     // 3. NEXTAUTH_URL (Required only in Production; skipped in Vercel Preview where NextAuth infers VERCEL_URL)
+    const isVercel = process.env.VERCEL === "1"
+    const vercelEnv = process.env.VERCEL_ENV
     const isVercelPreview =
-        process.env.VERCEL_ENV === "preview" ||
-        (Boolean(process.env.VERCEL_URL) && process.env.VERCEL_ENV !== "production")
-    const isProduction = process.env.NODE_ENV === "production" && !isVercelPreview
+        vercelEnv === "preview" ||
+        (Boolean(process.env.VERCEL_URL) && vercelEnv !== "production")
+    const isProduction =
+        (isVercel ? vercelEnv === "production" : process.env.NODE_ENV === "production") &&
+        !isVercelPreview
 
     const nextAuthUrl = process.env.NEXTAUTH_URL?.trim()
     if (isProduction && !nextAuthUrl) {
@@ -63,7 +72,7 @@ export function assertEnv(): void {
 
     // 5. ENCRYPTION_KEY (Required in production; 64-character hex string)
     const encryptionKey = process.env.ENCRYPTION_KEY?.trim()
-    if (process.env.NODE_ENV === "production" && !encryptionKey) {
+    if (isProduction && !encryptionKey) {
         errors.push("ENCRYPTION_KEY is required in production.")
     } else if (encryptionKey && (encryptionKey.length !== 64 || !/^[0-9a-fA-F]{64}$/.test(encryptionKey))) {
         errors.push("ENCRYPTION_KEY must be a 64-character hexadecimal string.")
