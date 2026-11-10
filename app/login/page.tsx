@@ -5,7 +5,12 @@ import { getRoleHome } from "@/lib/auth-routes"
 import { LoginForm } from "@/components/auth/LoginForm"
 
 export default async function LoginPage() {
-    const session = await getServerSession(authOptions)
+    let session = null
+    try {
+        session = await getServerSession(authOptions)
+    } catch {
+        // Fail open to rendering login form if session evaluation encounters transient error
+    }
 
     // Revocation-aware: session.user only exists if token is not revoked and status is ACTIVE
     if (session?.user?.role) {
