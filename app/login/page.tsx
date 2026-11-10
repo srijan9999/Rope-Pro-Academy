@@ -8,8 +8,9 @@ export default async function LoginPage() {
     let session = null
     try {
         session = await getServerSession(authOptions)
-    } catch {
-        // Fail open to rendering login form if session evaluation encounters transient error
+    } catch (error) {
+        // Safe non-sensitive diagnostic log; fail open to rendering login form
+        console.error("[Login] Session retrieval error:", error instanceof Error ? error.name : "Unknown")
     }
 
     // Revocation-aware: session.user only exists if token is not revoked and status is ACTIVE
