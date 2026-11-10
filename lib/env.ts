@@ -22,9 +22,10 @@ export function assertEnv(): void {
 
     const errors: string[] = []
 
-    // 1. DATABASE_URL
-    if (!process.env.DATABASE_URL?.trim()) {
-        errors.push("DATABASE_URL is missing or empty.")
+    // 1. DATABASE_URL (or LIVE_DATABASE_URL)
+    const dbUrl = (process.env.DATABASE_URL || process.env.LIVE_DATABASE_URL)?.trim()
+    if (!dbUrl) {
+        errors.push("DATABASE_URL (or LIVE_DATABASE_URL) is missing or empty.")
     }
 
     // 2. NEXTAUTH_SECRET (>= 32 chars)
