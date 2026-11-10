@@ -1,0 +1,60 @@
+"use client"
+
+import { useEffect } from "react"
+import Link from "next/link"
+import { AlertCircle, RefreshCw, Home } from "lucide-react"
+
+export default function RootError({
+    error,
+    reset,
+}: {
+    error: Error & { digest?: string }
+    reset: () => void
+}) {
+    useEffect(() => {
+        // Log digest for client diagnostics without leaking stack to UI
+        if (error.digest) {
+            console.error(`[App Error] Digest: ${error.digest}`)
+        }
+    }, [error])
+
+    return (
+        <div className="min-h-[70vh] flex items-center justify-center bg-black px-4 py-16 text-white">
+            <div className="w-full max-w-md rounded-3xl border border-zinc-800 bg-zinc-950 p-8 text-center shadow-2xl">
+                <div className="w-12 h-12 rounded-2xl bg-red-950/40 border border-red-900/50 flex items-center justify-center mx-auto mb-4 text-[#E63946]">
+                    <AlertCircle className="w-6 h-6" />
+                </div>
+                <h2 className="font-heading text-xl font-bold uppercase tracking-tight text-white">
+                    Something went wrong
+                </h2>
+                <p className="mt-2 text-xs text-zinc-400 leading-relaxed">
+                    A server error occurred while processing your request. Please try again or return to the homepage.
+                </p>
+                {error.digest && (
+                    <div className="mt-4 rounded-lg bg-zinc-900 border border-zinc-800 px-3 py-1.5">
+                        <span className="font-mono text-[11px] text-zinc-400">
+                            Reference ID: <span className="text-zinc-200 select-all">{error.digest}</span>
+                        </span>
+                    </div>
+                )}
+                <div className="mt-6 flex items-center justify-center gap-3">
+                    <button
+                        type="button"
+                        onClick={() => reset()}
+                        className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#E63946] px-5 py-2.5 text-xs font-bold uppercase tracking-wider text-white transition hover:bg-red-700 shadow-lg shadow-[#E63946]/30"
+                    >
+                        <RefreshCw className="w-3.5 h-3.5" />
+                        Try Again
+                    </button>
+                    <Link
+                        href="/"
+                        className="inline-flex items-center justify-center gap-2 rounded-xl border border-zinc-800 bg-zinc-900 px-5 py-2.5 text-xs font-bold uppercase tracking-wider text-zinc-300 transition hover:bg-zinc-800 hover:text-white"
+                    >
+                        <Home className="w-3.5 h-3.5" />
+                        Home
+                    </Link>
+                </div>
+            </div>
+        </div>
+    )
+}
