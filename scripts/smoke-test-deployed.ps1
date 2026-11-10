@@ -44,7 +44,7 @@ function Test-Endpoint {
     try {
         # Use Invoke-WebRequest with MaximumRedirection 0 when testing redirect behavior
         $maxRedir = if ($ExpectRedirect) { 0 } else { 5 }
-        $response = Invoke-WebRequest -Uri $url -Method Get -MaximumRedirection $maxRedir -ErrorAction Stop -TimeoutSec 15
+        $response = Invoke-WebRequest -Uri $url -Method Get -MaximumRedirection $maxRedir -ErrorAction Stop -TimeoutSec 15 -UseBasicParsing
 
         $statusCode = [int]$response.StatusCode
         $content = $response.Content
