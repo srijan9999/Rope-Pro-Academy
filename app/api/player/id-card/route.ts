@@ -203,6 +203,22 @@ export async function GET() {
                 attendance_rate: student.attendancePercentage,
                 gate_access: student.gateAccess,
 
+                // Physical V2 Fields
+                id_card_number: student.idCardNumber || student.studentId,
+                weight_kg: student.weightKg,
+                height_cm: student.heightCm,
+                photo_key: student.photoKey,
+                father_name: student.fatherName || student.parentName,
+                father_phone: student.fatherPhone || student.parentPhone,
+                mother_name: student.motherName,
+                mother_phone: student.motherPhone,
+                address_line1: student.addressLine1,
+                address_line2: student.addressLine2,
+                city: student.city,
+                state: student.state,
+                postal_code: student.postalCode,
+                school_name: student.schoolName,
+
                 // Security
                 card_serial_number: student.cardSerialNumber,
                 qr_code: student.qrCode,
@@ -301,6 +317,46 @@ export async function PATCH(request: Request) {
         if (body.whatsapp !== undefined) {
             changes.whatsapp = { old: student.whatsapp, new: body.whatsapp }
             allowedUpdates.whatsapp = body.whatsapp
+        }
+
+        // Extended Physical V2 Fields
+        if (body.weightKg !== undefined || body.weight_kg !== undefined) {
+            const val = body.weightKg !== undefined ? body.weightKg : body.weight_kg
+            allowedUpdates.weightKg = val !== null && val !== "" ? parseFloat(String(val)) : null
+        }
+        if (body.heightCm !== undefined || body.height_cm !== undefined) {
+            const val = body.heightCm !== undefined ? body.heightCm : body.height_cm
+            allowedUpdates.heightCm = val !== null && val !== "" ? parseFloat(String(val)) : null
+        }
+        if (body.fatherName !== undefined || body.father_name !== undefined) {
+            allowedUpdates.fatherName = (body.fatherName ?? body.father_name) || null
+        }
+        if (body.fatherPhone !== undefined || body.father_phone !== undefined) {
+            allowedUpdates.fatherPhone = (body.fatherPhone ?? body.father_phone) || null
+        }
+        if (body.motherName !== undefined || body.mother_name !== undefined) {
+            allowedUpdates.motherName = (body.motherName ?? body.mother_name) || null
+        }
+        if (body.motherPhone !== undefined || body.mother_phone !== undefined) {
+            allowedUpdates.motherPhone = (body.motherPhone ?? body.mother_phone) || null
+        }
+        if (body.addressLine1 !== undefined || body.address_line1 !== undefined) {
+            allowedUpdates.addressLine1 = (body.addressLine1 ?? body.address_line1) || null
+        }
+        if (body.addressLine2 !== undefined || body.address_line2 !== undefined) {
+            allowedUpdates.addressLine2 = (body.addressLine2 ?? body.address_line2) || null
+        }
+        if (body.city !== undefined) {
+            allowedUpdates.city = body.city || null
+        }
+        if (body.state !== undefined) {
+            allowedUpdates.state = body.state || null
+        }
+        if (body.postalCode !== undefined || body.postal_code !== undefined) {
+            allowedUpdates.postalCode = (body.postalCode ?? body.postal_code) || null
+        }
+        if (body.photoKey !== undefined || body.photo_key !== undefined) {
+            allowedUpdates.photoKey = (body.photoKey ?? body.photo_key) || null
         }
 
         if (Object.keys(allowedUpdates).length === 0) {

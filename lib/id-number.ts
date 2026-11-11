@@ -53,9 +53,20 @@ export async function generateNextIdCardNumber(
  * Called in the approval transaction when a student transitions to ACTIVE.
  */
 export async function ensureStudentIdCardNumber(
-    tx: Prisma.TransactionClient,
     studentId: string
+): Promise<string>
+export async function ensureStudentIdCardNumber(
+    tx: Prisma.TransactionClient | typeof prisma,
+    studentId: string
+): Promise<string>
+export async function ensureStudentIdCardNumber(
+    first: Prisma.TransactionClient | typeof prisma | string,
+    second?: string
 ): Promise<string> {
+    const isFirstString = typeof first === "string"
+    const tx = isFirstString ? prisma : first
+    const studentId = isFirstString ? first : second!
+
     const student = await tx.student.findUnique({
         where: { id: studentId },
         select: { id: true, idCardNumber: true },
@@ -83,9 +94,20 @@ export async function ensureStudentIdCardNumber(
  * Called in the coach approval transaction when a coach transitions to ACTIVE.
  */
 export async function ensureCoachIdCardNumber(
-    tx: Prisma.TransactionClient,
     coachId: string
+): Promise<string>
+export async function ensureCoachIdCardNumber(
+    tx: Prisma.TransactionClient | typeof prisma,
+    coachId: string
+): Promise<string>
+export async function ensureCoachIdCardNumber(
+    first: Prisma.TransactionClient | typeof prisma | string,
+    second?: string
 ): Promise<string> {
+    const isFirstString = typeof first === "string"
+    const tx = isFirstString ? prisma : first
+    const coachId = isFirstString ? first : second!
+
     const coach = await tx.coach.findUnique({
         where: { id: coachId },
         select: { id: true, idCardNumber: true },

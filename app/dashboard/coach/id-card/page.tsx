@@ -2,12 +2,14 @@ import { redirect } from "next/navigation"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
-import { IdCard, IdCardProps } from "@/components/dashboard/IdCard"
+import { TwoSidedIdCard } from "@/components/id-card/TwoSidedIdCard"
+import { ensureCoachIdCardNumber } from "@/lib/id-number"
+import { decrypt } from "@/lib/encryption"
 import { ShieldAlert, Clock } from "lucide-react"
 
 export const metadata = {
     title: "Coach ID Card | Rope Pro Academy",
-    description: "Official Coach Digital ID Card and verification credential.",
+    description: "Official Coach Two-Sided Physical ID Card and verification credential.",
 }
 
 interface CoachIdCardPageProps {
@@ -49,7 +51,7 @@ export default async function CoachIdCardPage({ searchParams }: CoachIdCardPageP
         where: targetWhere,
         include: {
             user: {
-                select: { status: true, email: true },
+                select: { id: true, status: true, email: true },
             },
             headOfAcademy: {
                 select: { name: true, location: true },
@@ -96,30 +98,54 @@ export default async function CoachIdCardPage({ searchParams }: CoachIdCardPageP
         )
     }
 
-    const cardProps: IdCardProps = {
-        name: coach.fullName,
-        role: "COACH",
-        photoUrl: coach.photoUrl,
-        idNumber: coach.coachId,
-        location: coach.headOfAcademy?.name || null,
+    // Ensure sequential coach ID card number exists
+    let idCardNumber = coach.idCardNumber
+    if (!idCardNumber) {
+        idCardNumber = await ensureCoachIdCardNumber(coach.id)
     }
 
+    // Decrypt coach phone safely
+    let contactNo = ""
+    if (coach.phone) {
+        try {
+            contactNo = coach.phone.startsWith("enc:") ? decrypt(coach.phone) : coach.phone
+        } catch {
+            contactNo = coach.phone
+        }
+    }
+
+    const branchName = coach.headOfAcademy?.name || "Rope Pro Academy Head Office"
+
     return (
-        <div className="container max-w-4xl py-8">
+        <div className="container max-w-5xl py-8">
             <div className="mb-8">
                 <span className="text-xs font-bold uppercase tracking-widest text-[#E63946] block mb-1">
                     Credential Portal
                 </span>
                 <h1 className="font-heading text-3xl font-black uppercase text-foreground">
-                    Coach Digital ID Card
+                    Coach ID Card
                 </h1>
                 <p className="text-sm text-muted-foreground mt-1">
-                    Official biometric credential issued by Rope Pro Academy. Use for campus access and tournament identification.
+                    Official two-sided physical credential issued by Rope Pro Academy. Use for campus access, event coordination, and tournament identification.
                 </p>
             </div>
 
             <div className="flex justify-center py-4">
-                <IdCard {...cardProps} />
+                <TwoSidedIdCard
+                    data={{
+                        idNumber: idCardNumber,
+                        fullName: coach.fullName,
+                        role: "COACH",
+                        photoUrl: coach.photoUrl,
+                        branchName,
+                        weightKg: coach.weightKg,
+                        heightCm: coach.heightCm,
+                        contactNo,
+                        email: coach.user.email,
+                    }}
+                    allowEdit={true}
+                    targetUserId={coach.userId}
+                />
             </div>
         </div>
     )

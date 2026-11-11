@@ -54,6 +54,7 @@ export async function GET() {
 
             // Coach specific data
             coachId: coach.coachId,
+            idCardNumber: coach.idCardNumber || coach.coachId,
             fullName: coach.fullName,
             phone: coach.phone ? decrypt(coach.phone) : "",
             specialization: coach.primarySpecialization,
@@ -61,6 +62,9 @@ export async function GET() {
             certifications: coach.certifications,
             bio: coach.bio,
             photo: coach.photoUrl,
+            weightKg: coach.weightKg,
+            heightCm: coach.heightCm,
+            photoKey: coach.photoKey,
         }
 
 
@@ -176,6 +180,22 @@ export async function PATCH(request: Request) {
             // Encrypt sensitive fields
             if (phone !== undefined) {
                 coachUpdateData.phone = phone ? encrypt(phone) : null
+            }
+
+            // Physical ID card fields
+            if (body.weightKg !== undefined || body.weight_kg !== undefined) {
+                const val = body.weightKg !== undefined ? body.weightKg : body.weight_kg
+                coachUpdateData.weightKg = val !== null && val !== "" ? parseFloat(String(val)) : null
+            }
+            if (body.heightCm !== undefined || body.height_cm !== undefined) {
+                const val = body.heightCm !== undefined ? body.heightCm : body.height_cm
+                coachUpdateData.heightCm = val !== null && val !== "" ? parseFloat(String(val)) : null
+            }
+            if (body.photoUrl !== undefined || body.photo_url !== undefined) {
+                coachUpdateData.photoUrl = (body.photoUrl ?? body.photo_url) || null
+            }
+            if (body.photoKey !== undefined || body.photo_key !== undefined) {
+                coachUpdateData.photoKey = (body.photoKey ?? body.photo_key) || null
             }
 
             // Update coach profile

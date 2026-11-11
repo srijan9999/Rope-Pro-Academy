@@ -2,12 +2,15 @@ import { redirect } from "next/navigation"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
-import { IdCard, IdCardProps } from "@/components/dashboard/IdCard"
+import { TwoSidedIdCard } from "@/components/id-card/TwoSidedIdCard"
+import { ensureStudentIdCardNumber } from "@/lib/id-number"
+import { decrypt } from "@/lib/encryption"
+import { getFullNameForSchool } from "@/lib/pricing"
 import { ShieldAlert, Clock } from "lucide-react"
 
 export const metadata = {
     title: "Student ID Card | Rope Pro Academy",
-    description: "Official Student Athlete Digital ID Card and verification credential.",
+    description: "Official Student Athlete Two-Sided ID Card and verification credential.",
 }
 
 interface PlayerIdCardPageProps {
@@ -49,7 +52,7 @@ export default async function PlayerIdCardPage({ searchParams }: PlayerIdCardPag
         where: targetWhere,
         include: {
             user: {
-                select: { status: true, email: true },
+                select: { id: true, status: true, email: true },
             },
             academy: {
                 select: { name: true, location: true },
@@ -93,33 +96,87 @@ export default async function PlayerIdCardPage({ searchParams }: PlayerIdCardPag
         )
     }
 
-    const cardProps: IdCardProps = {
-        name: student.fullName,
-        role: "STUDENT",
-        photoUrl: student.photoUrl,
-        idNumber: student.studentId,
-        location: student.academy?.name || null,
-        validUntil: student.cardExpiryDate
-            ? new Date(student.cardExpiryDate).toLocaleDateString("en-US", { month: "short", year: "numeric" })
-            : null,
+    // Ensure sequential ID card number exists
+    let idCardNumber = student.idCardNumber
+    if (!idCardNumber) {
+        idCardNumber = await ensureStudentIdCardNumber(student.id)
     }
 
+    // Decrypt contacts safely
+    let contactNo = ""
+    if (student.phone) {
+        try {
+            contactNo = student.phone.startsWith("enc:") ? decrypt(student.phone) : student.phone
+        } catch {
+            contactNo = student.phone
+        }
+    }
+
+    let fatherPhone = ""
+    const rawFatherPhone = student.fatherPhone || student.parentPhone
+    if (rawFatherPhone) {
+        try {
+            fatherPhone = rawFatherPhone.startsWith("enc:") ? decrypt(rawFatherPhone) : rawFatherPhone
+        } catch {
+            fatherPhone = rawFatherPhone
+        }
+    }
+
+    let motherPhone = ""
+    if (student.motherPhone) {
+        try {
+            motherPhone = student.motherPhone.startsWith("enc:") ? decrypt(student.motherPhone) : student.motherPhone
+        } catch {
+            motherPhone = student.motherPhone
+        }
+    }
+
+    const branchName =
+        getFullNameForSchool(student.schoolName) ||
+        student.academy?.name ||
+        "Bal Bharati Public School, Rohini"
+
     return (
-        <div className="container max-w-4xl py-8">
+        <div className="container max-w-5xl py-8">
             <div className="mb-8">
                 <span className="text-xs font-bold uppercase tracking-widest text-[#E63946] block mb-1">
                     Credential Portal
                 </span>
                 <h1 className="font-heading text-3xl font-black uppercase text-foreground">
-                    Student Digital ID Card
+                    Student ID Card
                 </h1>
                 <p className="text-sm text-muted-foreground mt-1">
-                    Official biometric credential issued by Rope Pro Academy. Use for attendance check-in, academy access, and tournament registration.
+                    Official two-sided physical credential issued by Rope Pro Academy. Use for tournament check-in, academy access, and session attendance.
                 </p>
             </div>
 
             <div className="flex justify-center py-4">
-                <IdCard {...cardProps} />
+                <TwoSidedIdCard
+                    data={{
+                        idNumber: idCardNumber,
+                        fullName: student.fullName,
+                        role: "STUDENT",
+                        photoUrl: student.photoUrl,
+                        branchName,
+                        gender: student.gender,
+                        dateOfBirth: student.dateOfBirth ? student.dateOfBirth.toISOString() : null,
+                        weightKg: student.weightKg,
+                        heightCm: student.heightCm,
+                        contactNo,
+                        email: student.user.email,
+                        fatherName: student.fatherName || student.parentName,
+                        fatherPhone,
+                        motherName: student.motherName,
+                        motherPhone,
+                        addressLine1: student.addressLine1,
+                        addressLine2: student.addressLine2,
+                        city: student.city,
+                        state: student.state,
+                        postalCode: student.postalCode,
+                    }}
+                    allowEdit={true}
+                    targetUserId={student.userId}
+                />
             </div>
         </div>
     )

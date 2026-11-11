@@ -126,6 +126,91 @@ export async function verifyResumeFileKey(fileKey: string): Promise<{
 }
 
 /**
+ * Validate image magic bytes from a buffer
+ */
+export function validateImageMagicBytes(buffer: Buffer): { valid: boolean; type?: "JPEG" | "PNG" | "WEBP" } {
+    if (buffer.length < 4) return { valid: false }
+
+    // JPEG: 0xFF 0xD8 0xFF
+    if (buffer[0] === 0xff && buffer[1] === 0xd8 && buffer[2] === 0xff) {
+        return { valid: true, type: "JPEG" }
+    }
+
+    // PNG: 0x89 0x50 0x4E 0x47 (89 50 4E 47 0D 0A 1A 0A)
+    if (buffer[0] === 0x89 && buffer[1] === 0x50 && buffer[2] === 0x4e && buffer[3] === 0x47) {
+        return { valid: true, type: "PNG" }
+    }
+
+    // WebP: 'RIFF'....'WEBP'
+    if (buffer.length >= 12) {
+        const isRiff = buffer[0] === 0x52 && buffer[1] === 0x49 && buffer[2] === 0x46 && buffer[3] === 0x46
+        const isWebp = buffer[8] === 0x57 && buffer[9] === 0x45 && buffer[10] === 0x42 && buffer[11] === 0x50
+        if (isRiff && isWebp) {
+            return { valid: true, type: "WEBP" }
+        }
+    }
+
+    return { valid: false }
+}
+
+/**
+ * Verify an uploaded profile image file key against UploadThing API
+ */
+export async function verifyImageFileKey(fileKey: string): Promise<{
+    valid: boolean
+    fileUrl?: string
+    error?: string
+}> {
+    if (!isValidUploadThingKey(fileKey)) {
+        return { valid: false, error: "Invalid image file key format" }
+    }
+
+    const token = process.env.UPLOADTHING_TOKEN?.trim()
+    if (!token) {
+        return { valid: true, fileUrl: `https://utfs.io/f/${fileKey}` }
+    }
+
+    try {
+        const utapi = getUTApi()
+        const urlsResult = await utapi.getFileUrls([fileKey])
+        const fileData = urlsResult?.data?.[0]
+
+        if (!fileData || !fileData.url) {
+            return { valid: false, error: "Image file not found in storage. Please re-upload." }
+        }
+
+        const fileUrl = fileData.url
+
+        try {
+            const controller = new AbortController()
+            const timeoutId = setTimeout(() => controller.abort(), 4000)
+            const headRes = await fetch(fileUrl, {
+                headers: { Range: "bytes=0-15" },
+                signal: controller.signal,
+            })
+            clearTimeout(timeoutId)
+
+            if (headRes.ok || headRes.status === 206) {
+                const arrayBuffer = await headRes.arrayBuffer()
+                const buffer = Buffer.from(arrayBuffer)
+                const magicCheck = validateImageMagicBytes(buffer)
+                if (!magicCheck.valid) {
+                    await utapi.deleteFiles([fileKey]).catch(() => { })
+                    return { valid: false, error: "Uploaded file does not match a valid JPEG, PNG, or WebP image." }
+                }
+            }
+        } catch {
+            // Allow if range request times out or is unsupported
+        }
+
+        return { valid: true, fileUrl }
+    } catch (err) {
+        console.error("Image file key verification error:", err)
+        return { valid: false, error: "Failed to verify image upload with storage provider" }
+    }
+}
+
+/**
  * Delete a file from UploadThing by its key
  */
 export async function deleteUploadedFile(fileKey: string): Promise<boolean> {
