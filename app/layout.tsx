@@ -4,7 +4,6 @@ import "./globals.css";
 import { SiteHeader } from "@/components/site-header";
 import { ConditionalFooter } from "@/components/conditional-footer";
 import { Providers } from "@/components/providers";
-import { SessionDebug } from "@/components/SessionDebug";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -51,7 +50,6 @@ export default function RootLayout({
             {children}
           </main>
           <ConditionalFooter />
-          <SessionDebug />
         </Providers>
       </body>
     </html>
