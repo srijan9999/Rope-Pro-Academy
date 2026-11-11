@@ -5,6 +5,7 @@ import { z } from "zod"
 import { authOptions, generateCoachId } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { hashDefaultPassword } from "@/lib/default-password"
+import { generateNextIdCardNumber } from "@/lib/id-number"
 
 const createCoachSchema = z.object({
     fullName: z.string().min(2, "Full name must be at least 2 characters"),
@@ -39,28 +40,32 @@ export async function POST(req: Request) {
 
     // 4. Create user + coach profile atomically
     try {
-        const coachId = await generateCoachId()
+        const user = await prisma.$transaction(async (tx) => {
+            const coachId = await generateCoachId()
+            const idCardNumber = await generateNextIdCardNumber(tx, "CH")
 
-        const user = await prisma.user.create({
-            data: {
-                email: email.toLowerCase().trim(),
-                password: hashedPassword,
-                role: "COACH",
-                status: "ACTIVE",
-                mustChangePassword: true, // forces the change on first login
-                coach: {
-                    create: {
-                        coachId,
-                        fullName: fullName.trim(),
-                        email: email.toLowerCase().trim(),
-                        phone: phone.trim(),
-                        resumeUrl: resumeUrl || "",
-                        applicationStatus: "APPROVED",
-                        isApproved: true,
+            return await tx.user.create({
+                data: {
+                    email: email.toLowerCase().trim(),
+                    password: hashedPassword,
+                    role: "COACH",
+                    status: "ACTIVE",
+                    mustChangePassword: true, // forces the change on first login
+                    coach: {
+                        create: {
+                            coachId,
+                            idCardNumber,
+                            fullName: fullName.trim(),
+                            email: email.toLowerCase().trim(),
+                            phone: phone.trim(),
+                            resumeUrl: resumeUrl || "",
+                            applicationStatus: "APPROVED",
+                            isApproved: true,
+                        },
                     },
                 },
-            },
-            select: { id: true, email: true, role: true, mustChangePassword: true },
+                select: { id: true, email: true, role: true, mustChangePassword: true },
+            })
         })
 
         return NextResponse.json({ success: true, user }, { status: 201 })

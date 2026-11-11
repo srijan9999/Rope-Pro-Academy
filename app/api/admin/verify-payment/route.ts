@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { prisma } from '@/lib/prisma'
+import { ensureStudentIdCardNumber } from '@/lib/id-number'
 
 // Force dynamic to prevent Next.js caching
 export const dynamic = 'force-dynamic'
@@ -85,43 +86,45 @@ export async function POST(request: Request) {
         const adminId = session.user.id
 
         if (action === 'APPROVE') {
-            // Use a transaction to ensure all updates succeed together
-            await prisma.$transaction([
-                // Update student registration status
-                prisma.student.update({
+            await prisma.$transaction(async (tx) => {
+                const idCardNumber = await ensureStudentIdCardNumber(tx, studentId)
+
+                // Update student registration status and active status
+                await tx.student.update({
                     where: { id: studentId },
                     data: {
                         registrationStatus: 'VERIFIED',
+                        status: 'ACTIVE',
                         paymentVerifiedAt: new Date(),
                         paymentVerifiedBy: adminId,
                         paymentNote: note || null,
+                        idCardNumber,
                     },
-                }),
+                })
 
                 // Update user status to ACTIVE since payment is now verified
-                prisma.user.update({
+                await tx.user.update({
                     where: { id: student.userId },
                     data: {
                         status: 'ACTIVE',
                     },
-                }),
+                })
 
                 // Create notification for the student
-                prisma.notification.create({
+                await tx.notification.create({
                     data: {
                         userId: student.userId,
                         title: 'Payment Verified',
-                        message:
-                            'Your registration payment has been verified successfully. Your account is now active.',
+                        message: `Your registration payment has been verified successfully. Your ID card is now available (${idCardNumber}).`,
                         type: 'SUCCESS',
                         category: 'SYSTEM',
                         relatedId: studentId,
                         relatedType: 'STUDENT',
                     },
-                }),
+                })
 
                 // Create audit log
-                prisma.auditLog.create({
+                await tx.auditLog.create({
                     data: {
                         userId: adminId,
                         action: 'UPDATE',
@@ -129,12 +132,14 @@ export async function POST(request: Request) {
                         entityId: studentId,
                         newValue: JSON.stringify({
                             registrationStatus: 'VERIFIED',
-                            paymentVerifiedBy: adminId,
+                            status: 'ACTIVE',
+                            idCardNumber,
+                            verifiedBy: adminId,
                             note: note || null,
                         }),
                     },
-                }),
-            ])
+                })
+            })
 
             return NextResponse.json({
                 success: true,

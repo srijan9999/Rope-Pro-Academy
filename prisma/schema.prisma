@@ -203,6 +203,24 @@ model Student {
   // ============================================
   // ID CARD FIELDS
   // ============================================
+  idCardNumber      String?   @unique // Format: RPA-PL26001
+  weightKg          Float?
+  heightCm          Float?
+  photoKey          String?
+
+  // Extended Parent/Guardian Fields
+  fatherName        String?
+  fatherPhone       String?
+  motherName        String?
+  motherPhone       String?
+
+  // Student Residential Address
+  addressLine1      String?
+  addressLine2      String?
+  city              String?
+  state             String?
+  postalCode        String?
+
   cardSerialNumber  String?   @unique // Auto-generated 16-char unique ID
   cardVersion       Int       @default(1)
   cardIssuedDate    DateTime  @default(now())
@@ -347,6 +365,17 @@ model Coach {
   // Verification & Approval
   applicationStatus String  @default("DRAFT") // DRAFT, SUBMITTED, UNDER_REVIEW, DOCUMENTS_PENDING, INTERVIEW_SCHEDULED, INTERVIEW_COMPLETED, APPROVED, REJECTED, WITHDRAWN
   verificationLevel String  @default("LEVEL_0") // LEVEL_0 to LEVEL_6
+
+  // Physical ID Card & Extended Profile Fields (Phase 2)
+  idCardNumber        String?   @unique // Format: RPA-CH26001
+  weightKg            Float?
+  heightCm            Float?
+  photoKey            String?
+
+  // Review & Admin Decision Fields
+  reviewedAt          DateTime?
+  reviewedBy          String?
+  rejectionNote       String?
 
   isVerified  Boolean   @default(false)
   verifiedBy  String?
@@ -1741,4 +1770,20 @@ model IDCardScan {
   @@index([scanType])
   @@index([scannedAt])
   @@map("id_card_scans")
+}
+
+// ============================================
+// ID CARD SEQUENTIAL COUNTER (Phase 2)
+// Concurrency-safe atomic counter per role and year
+// ============================================
+
+model IdCardCounter {
+  id        String   @id @default(cuid())
+  role      String   // "PL" for player/student, "CH" for coach
+  year      Int      // 2-digit year (e.g. 26 for 2026)
+  lastSeq   Int      @default(0)
+  updatedAt DateTime @updatedAt
+
+  @@unique([role, year])
+  @@map("id_card_counters")
 }

@@ -1,13 +1,16 @@
 /**
  * Centralized site configuration and figures for Rope Pro Academy.
- * All core statistics and institutional copy live here for single-edit consistency.
+ * All core statistics, institutional copy, and ID card configurations live here.
  */
 
 export const siteConfig = {
     name: "Rope Pro Academy",
+    shortName: "RPA",
     tagline: "Train like a Pro, Perform like a Champion",
     themeColor: "#E63946",
     foundingYear: 2015,
+    url: "https://ropeproacademy.com",
+    domain: "www.ropeproacademy.com",
     stats: {
         studentsTrained: 1000,
         studentsTrainedDisplay: "1000+",
@@ -51,11 +54,36 @@ export const siteConfig = {
         },
     ],
     contact: {
-        email: "info@roproacademy.com",
-        phone: "+91-9876543210",
+        email: "teamvgacs@gmail.com",
+        phone: "8470039884, 9899908098",
+        phones: ["8470039884", "9899908098"],
         address: "Rohini, Delhi",
         hours: "Mon-Sat, 6:00 AM - 8:00 PM",
     },
+    socials: {
+        facebook: "https://facebook.com/ropeproacademy",
+        instagram: "https://instagram.com/ropeproacademy",
+        youtube: "https://youtube.com/@ropeproacademy",
+    },
+    // Official ID Card Signatories (Decision 7)
+    signatories: [
+        {
+            name: "RAVI PASWAN",
+            title: "Founder",
+            signatureFile: "/signatures/ravi-paswan.png",
+        },
+        {
+            name: "ANIKET DHIMAN",
+            title: "Technical Head",
+            signatureFile: "/signatures/aniket-dhiman.png",
+        },
+        {
+            name: "MUKESH KUMAR",
+            title: "Head Coach",
+            signatureFile: "/signatures/mukesh-kumar.png",
+        },
+    ],
 } as const
 
+export const SITE_CONFIG = siteConfig
 export type SiteConfig = typeof siteConfig

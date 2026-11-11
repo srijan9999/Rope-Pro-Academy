@@ -23,7 +23,7 @@ import {
     DialogHeader,
     DialogTitle,
 } from "@/components/ui/dialog"
-import { Search, Filter, Eye, RefreshCw, X, ChevronLeft, ChevronRight, AlertCircle, CreditCard } from "lucide-react"
+import { Search, Filter, Eye, RefreshCw, X, ChevronLeft, ChevronRight, AlertCircle, CreditCard, FileText, CheckCircle2, XCircle, Loader2 } from "lucide-react"
 import { useUserFilters } from "@/hooks/useUserFilters"
 import { useUserDirectory } from "@/hooks/useUserDirectory"
 import { useDebounce } from "@/hooks/useDebounce"
@@ -55,8 +55,78 @@ function UserTableSkeleton() {
     )
 }
 
-function UserDetailsModal({ user, onClose }: { user: PaginatedUser | null; onClose: () => void }) {
+function UserDetailsModal({
+    user,
+    onClose,
+    onRefresh,
+}: {
+    user: PaginatedUser | null
+    onClose: () => void
+    onRefresh?: () => void
+}) {
+    const [actionLoading, setActionLoading] = useState(false)
+    const [rejectionNote, setRejectionNote] = useState("")
+    const [showRejectInput, setShowRejectInput] = useState(false)
+    const [actionMessage, setActionMessage] = useState<{ type: "success" | "error"; text: string } | null>(null)
+
     if (!user) return null
+
+    const handleViewResume = async () => {
+        try {
+            setActionLoading(true)
+            setActionMessage(null)
+            const res = await fetch(`/api/admin/coaches/${user.id}/resume`)
+            const data = await res.json()
+            if (data.success && data.url) {
+                window.open(data.url, "_blank", "noopener,noreferrer")
+            } else {
+                setActionMessage({ type: "error", text: data.error || "No CV available for this coach." })
+            }
+        } catch {
+            setActionMessage({ type: "error", text: "Failed to open CV document." })
+        } finally {
+            setActionLoading(false)
+        }
+    }
+
+    const handleApproveCoach = async () => {
+        try {
+            setActionLoading(true)
+            setActionMessage(null)
+            const res = await fetch(`/api/admin/coaches/${user.id}/approve`, { method: "POST" })
+            const data = await res.json()
+            if (!res.ok) throw new Error(data.message || "Failed to approve coach")
+            setActionMessage({ type: "success", text: `Coach approved! ID Card: ${data.data?.idCardNumber}` })
+            if (onRefresh) onRefresh()
+        } catch (err: unknown) {
+            const msg = err instanceof Error ? err.message : "Approval failed"
+            setActionMessage({ type: "error", text: msg })
+        } finally {
+            setActionLoading(false)
+        }
+    }
+
+    const handleRejectCoach = async () => {
+        try {
+            setActionLoading(true)
+            setActionMessage(null)
+            const res = await fetch(`/api/admin/coaches/${user.id}/reject`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ note: rejectionNote }),
+            })
+            const data = await res.json()
+            if (!res.ok) throw new Error(data.message || "Failed to reject application")
+            setActionMessage({ type: "success", text: "Application rejected." })
+            setShowRejectInput(false)
+            if (onRefresh) onRefresh()
+        } catch (err: unknown) {
+            const msg = err instanceof Error ? err.message : "Rejection failed"
+            setActionMessage({ type: "error", text: msg })
+        } finally {
+            setActionLoading(false)
+        }
+    }
 
     return (
         <div className="flex flex-col items-center text-center space-y-6">
@@ -74,9 +144,20 @@ function UserDetailsModal({ user, onClose }: { user: PaginatedUser | null; onClo
                 <p className="text-xs text-muted-foreground mt-1">{user.email}</p>
             </div>
 
+            {/* Status Message */}
+            {actionMessage && (
+                <div className={`w-full p-2.5 rounded-lg text-xs font-semibold ${
+                    actionMessage.type === "success"
+                        ? "bg-green-50 text-green-800 border border-green-200 dark:bg-green-950/30 dark:text-green-300"
+                        : "bg-red-50 text-red-800 border border-red-200 dark:bg-red-950/30 dark:text-red-300"
+                }`}>
+                    {actionMessage.text}
+                </div>
+            )}
+
             {/* Stats Grid */}
             <div className="grid grid-cols-2 gap-3 w-full">
-                <div className="bg-gray-50 p-3 rounded-lg">
+                <div className="bg-gray-50 dark:bg-zinc-900 p-3 rounded-lg">
                     <p className="text-xs text-muted-foreground mb-1">Status</p>
                     <Badge className={
                         user.status === "ACTIVE" ? "bg-green-100 text-green-800 shadow-none border-green-200" :
@@ -85,15 +166,15 @@ function UserDetailsModal({ user, onClose }: { user: PaginatedUser | null; onClo
                         {user.status}
                     </Badge>
                 </div>
-                <div className="bg-gray-50 p-3 rounded-lg">
+                <div className="bg-gray-50 dark:bg-zinc-900 p-3 rounded-lg">
                     <p className="text-xs text-muted-foreground mb-1">Joined</p>
                     <p className="text-sm font-medium">{new Date(user.createdAt).toLocaleDateString('en-IN')}</p>
                 </div>
-                <div className="bg-gray-50 p-3 rounded-lg">
+                <div className="bg-gray-50 dark:bg-zinc-900 p-3 rounded-lg">
                     <p className="text-xs text-muted-foreground mb-1">Role</p>
                     <Badge variant="outline">{user.role === 'STUDENT' ? 'Player' : user.role}</Badge>
                 </div>
-                <div className="bg-gray-50 p-3 rounded-lg">
+                <div className="bg-gray-50 dark:bg-zinc-900 p-3 rounded-lg">
                     <p className="text-xs text-muted-foreground mb-1">Academy</p>
                     <p className="text-sm font-medium truncate">{user.profile.academy?.name || '-'}</p>
                 </div>
@@ -127,6 +208,84 @@ function UserDetailsModal({ user, onClose }: { user: PaginatedUser | null; onClo
                     )}
                 </div>
             </div>
+
+            {/* Coach CV / Application Actions */}
+            {user.role === 'COACH' && (
+                <div className="w-full space-y-2.5 pt-2 border-t">
+                    <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        disabled={actionLoading}
+                        onClick={handleViewResume}
+                        className="w-full justify-center gap-2 text-xs font-semibold"
+                    >
+                        {actionLoading ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <FileText className="w-3.5 h-3.5" />}
+                        View Applicant CV / Resume
+                    </Button>
+
+                    {user.status === 'PENDING' && (
+                        <div className="space-y-2 pt-1">
+                            {!showRejectInput ? (
+                                <div className="grid grid-cols-2 gap-2">
+                                    <Button
+                                        type="button"
+                                        disabled={actionLoading}
+                                        onClick={handleApproveCoach}
+                                        className="bg-green-600 hover:bg-green-700 text-white font-bold text-xs gap-1.5 h-9"
+                                    >
+                                        <CheckCircle2 className="w-3.5 h-3.5" />
+                                        Approve
+                                    </Button>
+                                    <Button
+                                        type="button"
+                                        variant="outline"
+                                        disabled={actionLoading}
+                                        onClick={() => setShowRejectInput(true)}
+                                        className="border-red-300 text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 font-bold text-xs gap-1.5 h-9"
+                                    >
+                                        <XCircle className="w-3.5 h-3.5" />
+                                        Reject
+                                    </Button>
+                                </div>
+                            ) : (
+                                <div className="space-y-2 p-3 rounded-lg border border-red-200 bg-red-50/50 dark:border-red-900/50 dark:bg-red-950/20 text-left">
+                                    <p className="text-xs font-medium text-red-700 dark:text-red-300">
+                                        Rejection Reason / Admin Note:
+                                    </p>
+                                    <Input
+                                        placeholder="Reason for rejecting application..."
+                                        value={rejectionNote}
+                                        onChange={(e) => setRejectionNote(e.target.value)}
+                                        className="text-xs h-8 bg-background"
+                                    />
+                                    <div className="flex gap-2">
+                                        <Button
+                                            type="button"
+                                            size="sm"
+                                            disabled={actionLoading}
+                                            onClick={handleRejectCoach}
+                                            className="bg-red-600 hover:bg-red-700 text-white text-xs h-7 flex-1"
+                                        >
+                                            Confirm Reject
+                                        </Button>
+                                        <Button
+                                            type="button"
+                                            variant="ghost"
+                                            size="sm"
+                                            disabled={actionLoading}
+                                            onClick={() => setShowRejectInput(false)}
+                                            className="text-xs h-7"
+                                        >
+                                            Cancel
+                                        </Button>
+                                    </div>
+                                </div>
+                            )}
+                        </div>
+                    )}
+                </div>
+            )}
 
             {/* Action Links */}
             {(user.role === 'STUDENT' || user.role === 'COACH') && (
@@ -416,7 +575,7 @@ function UsersPageContent() {
                     <DialogHeader>
                         <DialogTitle className="text-center">User Details</DialogTitle>
                     </DialogHeader>
-                    <UserDetailsModal user={selectedUser} onClose={() => setSelectedUser(null)} />
+                    <UserDetailsModal user={selectedUser} onClose={() => setSelectedUser(null)} onRefresh={refresh} />
                 </DialogContent>
             </Dialog>
         </div>

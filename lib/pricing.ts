@@ -1,8 +1,8 @@
 // NO server-only imports here: used by the client form AND the API.
 export const SCHOOLS = [
-    { key: "bbps-rohini", label: "BBPS Rohini" },
-    { key: "vikas-puri", label: "Vikas Puri" },
-    { key: "dis", label: "DIS" }, // TODO: confirm full display name with owner
+    { key: "bbps-rohini", label: "BBPS Rohini", fullName: "Bal Bharati Public School, Rohini" },
+    { key: "vikas-puri", label: "Vikas Puri", fullName: "Vikas Puri Branch" },
+    { key: "dis", label: "DIS", fullName: "Delhi International School (DIS)" },
 ] as const
 
 export const PLANS = [
@@ -26,6 +26,12 @@ export function getFee(school: string, plan: string): number | null {
 
 export const labelFor = (list: readonly { key: string; label: string }[], key: string) =>
     list.find((i) => i.key === key)?.label ?? key
+
+export function getFullNameForSchool(key: string | null | undefined): string {
+    if (!key) return ""
+    const match = (SCHOOLS as readonly { key: string; label: string; fullName: string }[]).find((s) => s.key === key)
+    return match ? (match.fullName || match.label) : key
+}
 
 export const formatINR = (n: number) =>
     new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(n)

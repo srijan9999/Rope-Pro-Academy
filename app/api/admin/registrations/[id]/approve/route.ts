@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { getServerSession } from "next-auth"
 import { authOptions } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
+import { ensureStudentIdCardNumber } from "@/lib/id-number"
 import { revalidatePath } from "next/cache"
 
 export const dynamic = "force-dynamic"
@@ -24,42 +25,67 @@ export async function PATCH(
             return NextResponse.json({ message: "Registration ID is required" }, { status: 400 })
         }
 
-        // Only transition from PENDING_VERIFICATION to ACTIVE
-        const res = await prisma.student.updateMany({
-            where: {
-                id,
-                status: "PENDING_VERIFICATION",
-            },
-            data: {
-                status: "ACTIVE",
-                registrationStatus: "VERIFIED",
-                paymentReviewedAt: new Date(),
-                paymentReviewedBy: session.user.id || "ADMIN",
-            },
-        })
+        const adminId = session.user.id || "ADMIN"
 
-        if (res.count === 0) {
-            return NextResponse.json(
-                { message: "Registration is not awaiting verification or does not exist." },
-                { status: 409 }
-            )
-        }
-
-        // Activate the associated user account as well
-        const student = await prisma.student.findUnique({
-            where: { id },
-            select: { userId: true },
-        })
-
-        if (student?.userId) {
-            await prisma.user.update({
-                where: { id: student.userId },
-                data: { status: "ACTIVE" },
+        // Execute student approval atomically with ID card number generation
+        const result = await prisma.$transaction(async (tx) => {
+            const student = await tx.student.findUnique({
+                where: { id },
+                select: { id: true, userId: true, status: true, idCardNumber: true },
             })
+
+            if (!student) {
+                return { error: "NOT_FOUND", message: "Registration does not exist." }
+            }
+
+            if (student.status !== "PENDING_VERIFICATION") {
+                return {
+                    error: "INVALID_STATUS",
+                    message: `Registration is '${student.status}', not awaiting verification.`,
+                }
+            }
+
+            // Issue atomic ID card number (RPA-PL26...)
+            const idCardNumber = await ensureStudentIdCardNumber(tx, id)
+
+            await tx.student.update({
+                where: { id },
+                data: {
+                    status: "ACTIVE",
+                    registrationStatus: "VERIFIED",
+                    paymentReviewedAt: new Date(),
+                    paymentReviewedBy: adminId,
+                    idCardNumber,
+                },
+            })
+
+            if (student.userId) {
+                await tx.user.update({
+                    where: { id: student.userId },
+                    data: { status: "ACTIVE" },
+                })
+            }
+
+            return { success: true, idCardNumber }
+        })
+
+        if ("error" in result) {
+            const statusCode = result.error === "NOT_FOUND" ? 404 : 409
+            return NextResponse.json({ message: result.message }, { status: statusCode })
         }
 
         revalidatePath("/dashboard/admin/registrations")
-        return NextResponse.json({ success: true }, { status: 200 })
+        revalidatePath("/dashboard/admin/pending-payments")
+        revalidatePath("/dashboard/admin/users")
+
+        return NextResponse.json(
+            {
+                success: true,
+                message: "Registration approved successfully",
+                idCardNumber: result.idCardNumber,
+            },
+            { status: 200 }
+        )
     } catch (error) {
         console.error("Approve registration error:", error)
         return NextResponse.json(
