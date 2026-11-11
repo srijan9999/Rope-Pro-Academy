@@ -9,7 +9,6 @@ import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Loader2, Save, User, Shield, Phone, Heart, Eye, EyeOff, CheckCircle2 } from "lucide-react"
-import { DashboardSidebar } from "@/components/dashboard/sidebar"
 
 interface ProfileData {
     email: string

@@ -8,7 +8,6 @@ import { Label } from "@/components/ui/label"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Loader2, Save, User, Shield, Phone, Eye, EyeOff, CheckCircle2, Building2 } from "lucide-react"
-import { DashboardSidebar } from "@/components/dashboard/sidebar"
 
 interface AdminProfileData {
     email: string
@@ -150,19 +149,14 @@ export default function AdminProfilePage() {
 
     if (isLoading) {
         return (
-            <div className="flex">
-                <DashboardSidebar role="admin" />
-                <div className="flex-1 flex items-center justify-center min-h-screen">
-                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                </div>
+            <div className="flex-1 flex items-center justify-center min-h-[50vh]">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
             </div>
         )
     }
 
     return (
-        <div className="flex">
-            <DashboardSidebar role="admin" />
-            <div className="flex-1 p-6 md:p-8 max-w-4xl mx-auto">
+        <div className="flex-1 p-6 md:p-8 max-w-4xl mx-auto">
                 <div className="mb-8">
                     <h1 className="text-3xl font-bold">Admin Profile</h1>
                     <p className="text-muted-foreground">Manage your administrator account</p>
@@ -380,6 +374,5 @@ export default function AdminProfilePage() {
                     </div>
                 </div>
             </div>
-        </div>
     )
 }

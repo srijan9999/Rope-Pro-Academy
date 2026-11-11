@@ -8,7 +8,6 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Progress } from '@/components/ui/progress'
 import { usePlayerDashboard } from '@/hooks/usePlayerDashboard'
 import { SkeletonDashboard } from '@/components/player/SkeletonDashboard'
-import { DashboardSidebar } from '@/components/dashboard/sidebar'
 import { WeeklyCalendar } from '@/components/player/WeeklyCalendar'
 import { format, isToday, isTomorrow, parseISO } from 'date-fns'
 import { cn } from '@/lib/utils'
@@ -19,26 +18,16 @@ export default function PlayerDashboardPage() {
 
     if (isLoading) {
         return (
-            <div className="flex min-h-screen pt-16">
-                <DashboardSidebar role="player" />
-                <main className="flex-1 lg:pl-64">
-                    <div className="container py-8 max-w-7xl mx-auto px-6">
-                        <SkeletonDashboard />
-                    </div>
-                </main>
+            <div className="container py-8 max-w-7xl mx-auto px-6">
+                <SkeletonDashboard />
             </div>
         )
     }
 
     if (isError) {
         return (
-            <div className="flex min-h-screen pt-16">
-                <DashboardSidebar role="player" />
-                <main className="flex-1 lg:pl-64">
-                    <div className="container py-8 max-w-7xl mx-auto px-6 text-center text-red-500">
-                        Failed to load dashboard. <button onClick={() => refresh()} className="underline">Retry</button>
-                    </div>
-                </main>
+            <div className="container py-8 max-w-7xl mx-auto px-6 text-center text-red-500">
+                Failed to load dashboard. <button onClick={() => refresh()} className="underline">Retry</button>
             </div>
         )
     }

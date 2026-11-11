@@ -9,7 +9,6 @@ import { Button } from "@/components/ui/button"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Loader2, Save, User, Shield, Phone, Eye, EyeOff, CheckCircle2, Award, Briefcase } from "lucide-react"
-import { DashboardSidebar } from "@/components/dashboard/sidebar"
 
 interface CoachProfileData {
     email: string
@@ -162,19 +161,14 @@ export default function CoachProfilePage() {
 
     if (isLoading) {
         return (
-            <div className="flex">
-                <DashboardSidebar role="coach" />
-                <div className="flex-1 flex items-center justify-center min-h-screen">
-                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
-                </div>
+            <div className="flex-1 flex items-center justify-center min-h-[50vh]">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
             </div>
         )
     }
 
     return (
-        <div className="flex">
-            <DashboardSidebar role="coach" />
-            <div className="flex-1 p-6 md:p-8 max-w-4xl mx-auto">
+        <div className="flex-1 p-6 md:p-8 max-w-4xl mx-auto">
                 <div className="mb-8">
                     <h1 className="text-3xl font-bold">Coach Profile</h1>
                     <p className="text-muted-foreground">Manage your coach information and credentials</p>
@@ -440,6 +434,5 @@ export default function CoachProfilePage() {
                     </div>
                 </div>
             </div>
-        </div>
     )
 }
