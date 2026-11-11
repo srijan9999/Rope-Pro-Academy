@@ -120,18 +120,7 @@ async function main() {
                 status: "ACTIVE",
                 mustChangePassword: false,
             },
-            select: {
-                id: true,
-                email: true,
-                role: true,
-                status: true,
-                student: {
-                    select: {
-                        studentId: true,
-                        fullName: true,
-                    },
-                },
-            },
+            include: { student: true },
         })
 
         console.log(`\n✅ Student account updated and activated successfully!`)
@@ -160,23 +149,14 @@ async function main() {
                     fullName: name,
                     schoolName: "Rope Pro Academy",
                     skillLevel: "BEGINNER",
-                    status: "VERIFIED",
+                    status: "ACTIVE",
                     registrationStatus: "VERIFIED",
                     gateAccess: true,
                 },
             },
         },
-        select: {
-            id: true,
-            email: true,
-            role: true,
-            status: true,
-            student: {
-                select: {
-                    studentId: true,
-                    fullName: true,
-                },
-            },
+        include: {
+            student: true,
         },
     })
 
