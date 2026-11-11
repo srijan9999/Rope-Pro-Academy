@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { hashPassword, generateCoachId } from "@/lib/auth"
 import { coachFullRegistrationSchema } from "@/lib/validations/coach"
+import { verifyResumeFileKey, deleteUploadedFile, isValidUploadThingKey } from "@/lib/uploadthing-server"
 
 /**
  * POST /api/register/coach
@@ -11,7 +12,7 @@ import { coachFullRegistrationSchema } from "@/lib/validations/coach"
  * Sets application_status to SUBMITTED and verification_level to LEVEL_1.
  */
 export async function POST(request: Request) {
-
+    let resumeKey = ""
     try {
         // 1. Parse request body
         const body = await request.json()
@@ -35,14 +36,44 @@ export async function POST(request: Request) {
 
         const data = validationResult.data
 
-        // 2.1 Explicit check for resumeUrl
-        if (!data.resumeUrl || typeof data.resumeUrl !== "string" || data.resumeUrl.trim() === "") {
+        // 2.1 Server-side verification of resume file key
+        resumeKey = (data.resumeKey || "").trim()
+
+        // If resumeKey was not passed directly, try extracting from resumeUrl
+        if (!resumeKey && data.resumeUrl) {
+            const raw = data.resumeUrl.trim()
+            if (isValidUploadThingKey(raw)) {
+                resumeKey = raw
+            } else {
+                const utMatch = raw.match(/https:\/\/(?:[a-zA-Z0-9_-]+\.ufs\.sh|utfs\.io)\/f\/([a-zA-Z0-9._-]+)/)
+                if (utMatch && utMatch[1]) {
+                    resumeKey = utMatch[1]
+                }
+            }
+        }
+
+        if (!resumeKey) {
             return NextResponse.json(
                 {
                     success: false,
                     error: {
                         code: "RESUME_REQUIRED",
-                        message: "A valid resume URL is required to register as a coach.",
+                        message: "A verified UploadThing resume file key is required to register as a coach.",
+                    },
+                },
+                { status: 400 }
+            )
+        }
+
+        // Verify that the file key actually exists in UploadThing and matches document format
+        const verification = await verifyResumeFileKey(resumeKey)
+        if (!verification.valid) {
+            return NextResponse.json(
+                {
+                    success: false,
+                    error: {
+                        code: "RESUME_VERIFICATION_FAILED",
+                        message: verification.error || "The uploaded resume could not be verified in storage.",
                     },
                 },
                 { status: 400 }
@@ -125,7 +156,7 @@ export async function POST(request: Request) {
                     maxBatches: data.maxBatches || 3,
 
                     // Documents
-                    resumeUrl: data.resumeUrl.trim(),
+                    resumeUrl: resumeKey,
                     idProofUrl: data.idProofUrl || undefined,
 
                     // Application status
@@ -197,6 +228,10 @@ export async function POST(request: Request) {
             { status: 201 }
         )
     } catch (error: unknown) {
+        // Clean up orphaned upload if key is known
+        if (typeof resumeKey === "string" && resumeKey) {
+            await deleteUploadedFile(resumeKey).catch(() => { })
+        }
 
         if (error instanceof Error) {
 

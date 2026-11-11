@@ -59,9 +59,13 @@ export const coachStep5Schema = z.object({
 
 // Step 6: Documents
 export const coachStep6Schema = z.object({
-    resumeUrl: z.string().min(1, "Resume upload is required"),
+    resumeKey: z.string().optional(),
+    resumeUrl: z.string().optional(),
     idProofUrl: z.string().optional(),
     certificatesUrls: z.array(z.string()).optional(),
+}).refine((data) => Boolean(data.resumeKey || data.resumeUrl), {
+    message: "Resume upload is required",
+    path: ["resumeKey"],
 })
 
 // Combined full registration schema (for API)
@@ -104,15 +108,21 @@ export const coachFullRegistrationSchema = z.object({
     employmentType: z.string().min(1),
     maxBatches: z.number().int().min(1).max(10).optional(),
 
-    // Step 6 - Documents (required resumeUrl)
-    resumeUrl: z.string().min(1, "Resume upload is required"),
+    // Step 6 - Documents
+    resumeKey: z.string().optional(),
+    resumeUrl: z.string().optional(),
     idProofUrl: z.string().optional(),
     certificatesUrls: z.array(z.string()).optional(),
     documents: z.object({
         resume: z.string().optional(),
+        resumeKey: z.string().optional(),
+        resumeUrl: z.string().optional(),
         idProof: z.string().optional(),
         certificates: z.array(z.string()).optional(),
     }).optional(),
+}).refine((data) => Boolean(data.resumeKey || data.resumeUrl), {
+    message: "Resume upload is required",
+    path: ["resumeKey"],
 })
 
 // Types

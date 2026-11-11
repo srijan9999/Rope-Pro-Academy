@@ -13,8 +13,9 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Progress } from "@/components/ui/progress"
 import {
     CheckCircle2, Loader2, AlertCircle, ArrowLeft, ArrowRight,
-    User, MapPin, Briefcase, Star, Calendar, FileText, ClipboardCheck
+    User, MapPin, Briefcase, Star, Calendar, FileText, ClipboardCheck, Trash2
 } from "lucide-react"
+import { useUploadThing } from "@/lib/uploadthing"
 
 // ============================================
 // CONSTANTS
@@ -109,6 +110,7 @@ interface CoachFormData {
     // Step 6: Documents
     documents: {
         resume: string
+        resumeKey: string
         resumeUrl: string
         idProof: string
         certificates: string[]
@@ -140,7 +142,7 @@ const DEFAULT_FORM_DATA: CoachFormData = {
     availableTimes: {},
     employmentType: "PART_TIME",
     maxBatches: 3,
-    documents: { resume: "", resumeUrl: "", idProof: "", certificates: [] },
+    documents: { resume: "", resumeKey: "", resumeUrl: "", idProof: "", certificates: [] },
 }
 
 const STORAGE_KEY = "rpa_coach_registration_draft"
@@ -181,8 +183,11 @@ function validateStep(step: number, data: CoachFormData): string[] {
             if (!data.employmentType) errors.push("Employment type is required")
             break
         case 6:
-            if (!data.documents.resumeUrl || data.documents.resumeUrl.trim() === "") {
-                errors.push("Resume / CV upload is required (PDF, DOC, DOCX up to 5 MB)")
+            if (
+                (!data.documents.resumeKey || data.documents.resumeKey.trim() === "") &&
+                (!data.documents.resumeUrl || data.documents.resumeUrl.trim() === "")
+            ) {
+                errors.push("Resume / CV upload is required (PDF, DOC, DOCX up to 8 MB)")
             }
             break
     }
@@ -204,7 +209,32 @@ export function CoachRegistrationForm() {
     const [resultData, setResultData] = useState<{ coachId: string; email: string } | null>(null)
     const [draftRestored, setDraftRestored] = useState(false)
     const [isUploadingResume, setIsUploadingResume] = useState(false)
+    const [uploadProgress, setUploadProgress] = useState(0)
     const [resumeUploadError, setResumeUploadError] = useState<string | null>(null)
+
+    // Direct browser-to-UploadThing upload for coach resumes (bypasses Vercel 4.5 MB limit)
+    const { startUpload, isUploading } = useUploadThing("coachResume", {
+        onUploadProgress: (p) => {
+            setUploadProgress(p)
+        },
+        onClientUploadComplete: (res) => {
+            if (res && res[0]) {
+                const file = res[0]
+                updateField("documents", {
+                    ...formData.documents,
+                    resume: file.name,
+                    resumeKey: file.key,
+                    resumeUrl: (file as any).ufsUrl || file.url || file.key,
+                })
+                setResumeUploadError(null)
+            }
+            setIsUploadingResume(false)
+        },
+        onUploadError: (err) => {
+            setResumeUploadError(err.message || "Failed to upload resume to storage")
+            setIsUploadingResume(false)
+        },
+    })
 
     // Load draft from localStorage on mount
     useEffect(() => {
@@ -249,6 +279,7 @@ export function CoachRegistrationForm() {
         if (!file) return
 
         setResumeUploadError(null)
+        setUploadProgress(0)
 
         // Client-side extension validation
         const allowedExtensions = [".pdf", ".doc", ".docx"]
@@ -258,38 +289,31 @@ export function CoachRegistrationForm() {
             return
         }
 
-        // Client-side size validation (max 5 MB)
-        if (file.size > 5 * 1024 * 1024) {
-            setResumeUploadError("File size exceeds 5 MB limit. Please select a smaller file.")
+        // Client-side size validation (max 8 MB)
+        if (file.size > 8 * 1024 * 1024) {
+            setResumeUploadError("File size exceeds 8 MB limit. Please select a smaller file.")
             return
         }
 
         setIsUploadingResume(true)
         try {
-            const uploadData = new FormData()
-            uploadData.append("file", file)
-
-            const res = await fetch("/api/upload/resume", {
-                method: "POST",
-                body: uploadData,
-            })
-
-            const result = await res.json()
-            if (!res.ok || !result.success) {
-                throw new Error(result.error || "Failed to upload resume")
-            }
-
-            updateField("documents", {
-                ...formData.documents,
-                resume: file.name,
-                resumeUrl: result.url,
-            })
+            await startUpload([file])
         } catch (err: unknown) {
             const msg = err instanceof Error ? err.message : "Failed to upload resume"
             setResumeUploadError(msg)
-        } finally {
             setIsUploadingResume(false)
         }
+    }
+
+    const handleRemoveResume = () => {
+        updateField("documents", {
+            ...formData.documents,
+            resume: "",
+            resumeKey: "",
+            resumeUrl: "",
+        })
+        setResumeUploadError(null)
+        setUploadProgress(0)
     }
 
     const handleNext = () => {
@@ -345,7 +369,8 @@ export function CoachRegistrationForm() {
                     availableTimes: formData.availableTimes,
                     employmentType: formData.employmentType,
                     maxBatches: formData.maxBatches,
-                    resumeUrl: formData.documents.resumeUrl,
+                    resumeKey: formData.documents.resumeKey,
+                    resumeUrl: formData.documents.resumeKey || formData.documents.resumeUrl,
                     documents: formData.documents,
                 }),
             })
@@ -797,35 +822,67 @@ export function CoachRegistrationForm() {
                                 <div className="space-y-6">
                                     <div className="rounded-lg border border-red-200 bg-red-50 p-4 dark:border-red-900 dark:bg-red-900/20">
                                         <p className="text-sm font-medium text-red-700 dark:text-red-300">
-                                            📄 Resume / CV upload is mandatory. Accepted formats: PDF, DOC, DOCX (max 5 MB).
+                                            📄 Resume / CV upload is mandatory. Accepted formats: PDF, DOC, DOCX (up to 8 MB).
                                         </p>
                                     </div>
 
                                     <div className="space-y-4">
-                                        <div className="space-y-2">
+                                        <div className="space-y-2" aria-live="polite">
                                             <Label htmlFor="resume">
                                                 Resume / CV <span className="text-red-600 font-bold">*</span>
                                             </Label>
-                                            <Input
-                                                id="resume"
-                                                type="file"
-                                                accept=".pdf,.doc,.docx"
-                                                disabled={isUploadingResume}
-                                                onChange={handleResumeUpload}
-                                            />
-                                            {isUploadingResume && (
-                                                <p className="text-xs text-muted-foreground animate-pulse">
-                                                    ⏳ Uploading and validating resume...
-                                                </p>
+                                            
+                                            {!formData.documents.resumeKey && !formData.documents.resumeUrl ? (
+                                                <>
+                                                    <Input
+                                                        id="resume"
+                                                        type="file"
+                                                        accept=".pdf,.doc,.docx"
+                                                        disabled={isUploadingResume || isUploading}
+                                                        onChange={handleResumeUpload}
+                                                    />
+                                                    {(isUploadingResume || isUploading) && (
+                                                        <div className="space-y-1.5 mt-2">
+                                                            <div className="flex items-center justify-between text-xs text-muted-foreground">
+                                                                <span className="flex items-center gap-1.5">
+                                                                    <Loader2 className="h-3.5 w-3.5 animate-spin text-primary" />
+                                                                    Uploading and validating CV...
+                                                                </span>
+                                                                <span className="font-semibold">{uploadProgress}%</span>
+                                                            </div>
+                                                            <Progress value={uploadProgress} className="h-1.5" />
+                                                        </div>
+                                                    )}
+                                                </>
+                                            ) : (
+                                                <div className="flex items-center justify-between rounded-lg border border-green-200 bg-green-50/70 p-3.5 dark:border-green-900/50 dark:bg-green-950/20">
+                                                    <div className="flex items-center gap-2.5 min-w-0">
+                                                        <CheckCircle2 className="h-5 w-5 text-green-600 shrink-0" />
+                                                        <div className="min-w-0">
+                                                            <p className="text-sm font-semibold text-green-900 dark:text-green-100">
+                                                                CV uploaded successfully
+                                                            </p>
+                                                            <p className="text-xs text-muted-foreground truncate max-w-[280px]">
+                                                                {formData.documents.resume || "Resume Document"}
+                                                            </p>
+                                                        </div>
+                                                    </div>
+                                                    <Button
+                                                        type="button"
+                                                        variant="ghost"
+                                                        size="sm"
+                                                        onClick={handleRemoveResume}
+                                                        className="text-xs text-red-600 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/50 h-8 gap-1 shrink-0"
+                                                    >
+                                                        <Trash2 className="h-3.5 w-3.5" />
+                                                        Remove
+                                                    </Button>
+                                                </div>
                                             )}
+
                                             {resumeUploadError && (
-                                                <p className="text-xs text-red-600 font-medium">
-                                                    ❌ {resumeUploadError}
-                                                </p>
-                                            )}
-                                            {formData.documents.resumeUrl && (
-                                                <p className="text-xs text-green-600 font-medium">
-                                                    ✓ Uploaded: {formData.documents.resume}
+                                                <p className="text-xs text-red-600 font-medium flex items-center gap-1.5 mt-1.5">
+                                                    <AlertCircle className="h-3.5 w-3.5 shrink-0" /> {resumeUploadError}
                                                 </p>
                                             )}
                                         </div>
@@ -919,7 +976,7 @@ export function CoachRegistrationForm() {
                             Next <ArrowRight className="ml-2 h-4 w-4" />
                         </Button>
                     ) : (
-                        <Button onClick={handleSubmit} disabled={isSubmitting || isUploadingResume} className="bg-green-600 hover:bg-green-700">
+                        <Button onClick={handleSubmit} disabled={isSubmitting || isUploadingResume || isUploading} className="bg-green-600 hover:bg-green-700">
                             {isSubmitting ? (
                                 <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Submitting...</>
                             ) : (
