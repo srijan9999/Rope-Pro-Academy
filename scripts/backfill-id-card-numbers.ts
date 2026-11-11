@@ -118,7 +118,7 @@ async function main() {
     for (const s of students) {
         currentPlSeq++
         const simulatedNumber = `RPA-PL${year}${String(currentPlSeq).padStart(3, "0")}`
-        console.log(`  [Student] ${s.studentId} (${s.fullName}) -> ${simulatedNumber}`)
+        console.log(`  [Student] ID: ${s.studentId} -> ${simulatedNumber}`)
 
         if (isApply) {
             await prisma.$transaction(async (tx) => {
@@ -146,7 +146,7 @@ async function main() {
     for (const c of coaches) {
         currentChSeq++
         const simulatedNumber = `RPA-CH${year}${String(currentChSeq).padStart(3, "0")}`
-        console.log(`  [Coach] ${c.coachId} (${c.fullName}) -> ${simulatedNumber}`)
+        console.log(`  [Coach] ID: ${c.coachId} -> ${simulatedNumber}`)
 
         if (isApply) {
             await prisma.$transaction(async (tx) => {
